@@ -67,13 +67,14 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     for block in blocks:
         lines = block.split("\n")
         if len(lines) >= 3:
-            time_line = lines
+            # POPRAWKA: Pobieramy tylko linię czasu (jako pojedynczy string, nie listę)
+            time_line = lines[1]
             text_content = " ".join(lines[2:]).strip()
 
             times = re.findall(r"\d{2}:\d{2}:\d{2}[,\.]\d{3}", time_line)
             if len(times) == 2:
-                start_sec = srt_time_to_seconds(times)
-                end_sec = srt_time_to_seconds(times)
+                start_sec = srt_time_to_seconds(times[0])
+                end_sec = srt_time_to_seconds(times[1])
                 duration = end_sec - start_sec
 
                 if duration > 0:
@@ -107,7 +108,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
-                        .with_position(('center', text_position_y + 3)) # Przesunięcie o 3 piksele w dół i w prawo
+                        .with_position(('center', text_position_y + 3)) # Przesunięcie o 3 piksele w dół
                     )
 
                     # KLIP 2: TEKST WŁAŚCIWY (Czysta biel nakładana idealnie na wierzch mgły)
@@ -142,6 +143,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     )
     video.close()
     final_video.close()
+
 
 
 
