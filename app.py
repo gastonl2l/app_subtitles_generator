@@ -86,24 +86,25 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                     # Zwiększamy kontener do 85%, dając wyrazom więcej przestrzeni
                     container_size = (int(video.w * 0.85), None)
 
-                    # TRICK: Dodajemy spacje ochronne na początku i końcu tekstu
-                    # Zapobiega to ucinaniu brzegu pierwszej i ostatniej litery w linii
-                    safe_text = f" {text_content} "
+
+                    max_width = int(video.w * 0.8)
+                    max_height = int(video.h * 0.2)  # Rezerwujemy maksymalnie 20% wysokości ekranu na napis
 
                     txt_clip = (
                         TextClip(
-                            text=safe_text,      
-                            font_size=28,           
+                            text=text_content,      
+                            font_size=14,           
                             color='white', 
-                            font='arial.ttf',
-                            size=container_size,
-                            method='caption' # Automatyczne zawijanie całych wyrazów
+                            font=r'C:\Windows\Fonts\arial.ttf',           
+                            bg_color='black',
+                            size=(max_width, max_height), # Określamy sztywny kontener (szerokość, wysokość)
+                            method='caption'              # MoviePy automatycznie zawinie tekst i wycentruje w tym oknie
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
-                        .with_position(('center', text_position_y))
+                        .with_position(('center', video.h - max_height - 20)) # Pozycjonowanie relatywne do dołu ekranu
                     )
-                    
+                                        
                     subtitle_clips.append(txt_clip)
 
     # 4. Łączenie oryginalnego wideo z wygenerowanymi nakładkami tekstowymi
