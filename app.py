@@ -61,19 +61,19 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     subtitle_clips = []
 
-    # Pozycja dostosowana do 2 linii tekstu (240 pikseli od dołu ekranu)
+    # Pozycja w pionie dostosowana do 2 linii tekstu (240 pikseli od dołu)
     text_position_y = video.h - 240
 
     for block in blocks:
         lines = block.split("\n")
         if len(lines) >= 3:
-            time_line = lines[1]
+            time_line = lines
             text_content = " ".join(lines[2:]).strip()
 
             times = re.findall(r"\d{2}:\d{2}:\d{2}[,\.]\d{3}", time_line)
             if len(times) == 2:
-                start_sec = srt_time_to_seconds(times[0])
-                end_sec = srt_time_to_seconds(times[1])
+                start_sec = srt_time_to_seconds(times)
+                end_sec = srt_time_to_seconds(times)
                 duration = end_sec - start_sec
 
                 if duration > 0:
@@ -81,18 +81,36 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                     words = text_content.split()
                     if len(words) > 4:
                         midpoint = len(words) // 2
-                        # Dzielimy zdanie na pół i łączymy znakiem nowej linii \n
                         formatted_text = " ".join(words[:midpoint]) + "\n" + " ".join(words[midpoint:])
                     else:
                         formatted_text = text_content
 
-                    # 2. DODANIE SPACJI OCHRONNYCH DO KAŻDEJ Z LINII (zapobiega ucinaniu liter)
+                    # 2. DODANIE SPACJI OCHRONNYCH DO KAŻDEJ Z LINII (ochrona skrajnych liter)
                     safe_lines = [f" {line.strip()} " for line in formatted_text.split("\n")]
                     final_text = "\n".join(safe_lines)
 
-                    # 3. SZEROKI KONTENER (95% ekranu) - zapobiega przypadkowym przeskokom do 3 i 4 linii
+                    # 3. SZEROKI KONTENER (95% ekranu) - zapobiega przeskokom do 3 i 4 linii
                     container_size = (int(video.w * 0.95), None)
 
+                    # KLIP 1: CIEŃ (Czarna pogrubiona warstwa tworząca delikatną mgłę w tle)
+                    shadow_clip = (
+                        TextClip(
+                            text=final_text,      
+                            font_size=38,           
+                            color='black', 
+                            font='arial.ttf', 
+                            size=container_size,
+                            text_align='center', 
+                            stroke_color='black',   # Czarny obrys rozszerza cień na boki
+                            stroke_width=6,         # Grubość 6 tworzy miękki efekt poświaty/mgły
+                            method='caption' 
+                        )
+                        .with_start(start_sec)       
+                        .with_duration(duration)    
+                        .with_position(('center', text_position_y + 3)) # Przesunięcie o 3 piksele w dół i w prawo
+                    )
+
+                    # KLIP 2: TEKST WŁAŚCIWY (Czysta biel nakładana idealnie na wierzch mgły)
                     txt_clip = (
                         TextClip(
                             text=final_text,      
@@ -109,6 +127,9 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                         .with_duration(duration)    
                         .with_position(('center', text_position_y))
                     )
+                    
+                    # Najpierw dodajemy cień pod spód, a potem białe litery na wierzch
+                    subtitle_clips.append(shadow_clip)
                     subtitle_clips.append(txt_clip)
 
     final_video = CompositeVideoClip([video] + subtitle_clips)
@@ -121,6 +142,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     )
     video.close()
     final_video.close()
+
 
 
 
