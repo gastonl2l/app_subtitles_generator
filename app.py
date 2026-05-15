@@ -61,8 +61,8 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     subtitle_clips = []
 
-    # Pozycja dostosowana tak, aby napisy były nieco niżej (180 px od dołu)
-    text_position_y = video.h - 180
+    # Pozycja dostosowana tak, aby napisy były nieco niżej 
+    text_position_y = video.h - 300
 
     for block in blocks:
         lines = block.split("\n")
