@@ -61,14 +61,13 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     subtitle_clips = []
 
-    # Pozycja w pionie dostosowana do 2 linii tekstu (240 pikseli od dołu)
+    # Pozycja napisu w pionie (ok. 240 pikseli od dołu, jak na Twoim zdjęciu)
     text_position_y = video.h - 240
 
     for block in blocks:
         lines = block.split("\n")
         if len(lines) >= 3:
-            # POPRAWKA: Pobieramy tylko linię czasu (jako pojedynczy string, nie listę)
-            time_line = lines[1]
+            time_line = lines[1] # Poprawiona pojedyncza linia czasu SRT
             text_content = " ".join(lines[2:]).strip()
 
             times = re.findall(r"\d{2}:\d{2}:\d{2}[,\.]\d{3}", time_line)
@@ -86,32 +85,14 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                     else:
                         formatted_text = text_content
 
-                    # 2. DODANIE SPACJI OCHRONNYCH DO KAŻDEJ Z LINII (ochrona skrajnych liter)
+                    # 2. DODANIE SPACJI OCHRONNYCH DO KAŻDEJ Z LINII (zapobiega ścinaniu krawędzi liter)
                     safe_lines = [f" {line.strip()} " for line in formatted_text.split("\n")]
                     final_text = "\n".join(safe_lines)
 
-                    # 3. SZEROKI KONTENER (95% ekranu) - zapobiega przeskokom do 3 i 4 linii
+                    # 3. SZEROKI KONTENER (95% ekranu) - utrzymuje tekst w stabilnych 2 liniach
                     container_size = (int(video.w * 0.95), None)
 
-                    # KLIP 1: CIEŃ (Czarna pogrubiona warstwa tworząca delikatną mgłę w tle)
-                    shadow_clip = (
-                        TextClip(
-                            text=final_text,      
-                            font_size=38,           
-                            color='black', 
-                            font='arial.ttf', 
-                            size=container_size,
-                            text_align='center', 
-                            stroke_color='black',   # Czarny obrys rozszerza cień na boki
-                            stroke_width=6,         # Grubość 6 tworzy miękki efekt poświaty/mgły
-                            method='caption' 
-                        )
-                        .with_start(start_sec)       
-                        .with_duration(duration)    
-                        .with_position(('center', text_position_y + 3)) # Przesunięcie o 3 piksele w dół
-                    )
-
-                    # KLIP 2: TEKST WŁAŚCIWY (Czysta biel nakładana idealnie na wierzch mgły)
+                    # 4. TYLKO JEDEN KLIP: Czarna ostra krawędź bezpośrednio na białej czcionce
                     txt_clip = (
                         TextClip(
                             text=final_text,      
@@ -120,8 +101,8 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                             font='arial.ttf', 
                             size=container_size,
                             text_align='center', 
-                            stroke_color='white',   # Dodatkowy piksel ochrony skrajnych liter
-                            stroke_width=1,
+                            stroke_color='black',   # Czysty czarny kontur liter (jak na zdjęciu)
+                            stroke_width=2.5,       # Grubość konturu zapewniająca idealną ostrość i kontrast
                             method='caption' 
                         )
                         .with_start(start_sec)       
@@ -129,8 +110,6 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                         .with_position(('center', text_position_y))
                     )
                     
-                    # Najpierw dodajemy cień pod spód, a potem białe litery na wierzch
-                    subtitle_clips.append(shadow_clip)
                     subtitle_clips.append(txt_clip)
 
     final_video = CompositeVideoClip([video] + subtitle_clips)
@@ -143,6 +122,8 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     )
     video.close()
     final_video.close()
+
+
 
 
 
