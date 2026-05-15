@@ -9,7 +9,7 @@ import re
 from moviepy import VideoFileClip, TextClip, CompositeVideoClip
 
 
-# API_KEY
+# API_KEY pobierany z sekretów Streamlit Cloud
 @st.cache_resource
 def get_openai_client():
     return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -45,7 +45,6 @@ if "audio_ready" not in st.session_state:
 
 if "video_rendered" not in st.session_state:
     st.session_state["video_rendered"] = False
-
 
 
 # Funkcja dodawania napisów do wideo przy użyciu moviepy
@@ -90,16 +89,17 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                             text=text_content,      
                             font_size=14,           
                             color='white', 
-                            #font=r'C:\Windows\Fonts\arial.ttf',
-                            font='LiberationSans-Regular.ttf',
+                            font='LiberationSans-Regular.ttf', # Plik czcionki musi znajdować się w projekcie
                             bg_color='black',
-                            size=(max_width, max_height), # Określamy sztywny kontener (szerokość, wysokość)
-                            method='caption'              # MoviePy automatycznie zawinie tekst i wycentruje w tym oknie
+                            size=(max_width, max_height), 
+                            method='caption'              
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
-                        .with_position(('center', video.h - max_height - 20)) # Pozycjonowanie relatywne do dołu ekranu
+                        .with_position(('center', video.h - max_height - 20)) 
                     )
+                    # POPRAWKA: Dodanie wygenerowanego klipu tekstowego do listy
+                    subtitle_clips.append(txt_clip)
 
     # 4. Łączenie oryginalnego wideo z wygenerowanymi nakładkami tekstowymi
     final_video = CompositeVideoClip([video] + subtitle_clips)
@@ -230,8 +230,7 @@ if uploaded_file is not None:
                         status.update(label="Wystąpił błąd podczas generowania wideo", state="error")
                         st.error(f"Wystąpił błąd: {e}")
 
-
-        # Wyświetlanie gotowego pliku i przycisku pobierania
+        # POPRAWKA DO URWANEGO KODU: Wyświetlanie gotowego pliku i przycisku pobierania
         if st.session_state["video_rendered"] and os.path.exists("video_with_subtitles.mp4"):
             col1, col2, col3 = st.columns([1, 2, 1])
 
