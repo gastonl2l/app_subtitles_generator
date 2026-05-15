@@ -61,13 +61,13 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     subtitle_clips = []
 
-    # Pozycja napisu w pionie (ok. 240 pikseli od dołu, jak na Twoim zdjęciu)
+    # Pozycja napisu w pionie (ok. 240 pikseli od dołu, idealna dla 2 linii)
     text_position_y = video.h - 240
 
     for block in blocks:
         lines = block.split("\n")
         if len(lines) >= 3:
-            time_line = lines[1] # Poprawiona pojedyncza linia czasu SRT
+            time_line = lines[1]
             text_content = " ".join(lines[2:]).strip()
 
             times = re.findall(r"\d{2}:\d{2}:\d{2}[,\.]\d{3}", time_line)
@@ -77,32 +77,33 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                 duration = end_sec - start_sec
 
                 if duration > 0:
-                    # 1. INTELIGENTNE DZIELENIE NA MAX 2 LINIE W MIEJSCU SPACJI
+                    # 1. WYMUSZENIE DOKŁADNIE 2 LINII TEKSTU (Dzielenie zdania równo na pół)
                     words = text_content.split()
-                    if len(words) > 4:
-                        midpoint = len(words) // 2
+                    if len(words) >= 2:
+                        midpoint = (len(words) + 1) // 2  # Zaokrąglenie w górę dla lepszego balansu linii
                         formatted_text = " ".join(words[:midpoint]) + "\n" + " ".join(words[midpoint:])
                     else:
-                        formatted_text = text_content
+                        # Jeśli jest tylko jedno słowo, dodajemy pustą linię pod spodem, by zachować stały rozmiar kontenera
+                        formatted_text = text_content + "\n"
 
                     # 2. DODANIE SPACJI OCHRONNYCH DO KAŻDEJ Z LINII (zapobiega ścinaniu krawędzi liter)
                     safe_lines = [f" {line.strip()} " for line in formatted_text.split("\n")]
                     final_text = "\n".join(safe_lines)
 
-                    # 3. SZEROKI KONTENER (95% ekranu) - utrzymuje tekst w stabilnych 2 liniach
-                    container_size = (int(video.w * 0.95), None)
+                    # 3. BARDZO SZEROKI KONTENER (98% ekranu) - blokuje przypadkowe przeskoki do 3 linii przy grubej czcionce
+                    container_size = (int(video.w * 0.98), None)
 
-                    # 4. TYLKO JEDEN KLIP: Czarna ostra krawędź bezpośrednio na białej czcionce
+                    # 4. JEDEN KLIP: Pogrubiona czcionka (Bold) z mocnym konturem
                     txt_clip = (
                         TextClip(
                             text=final_text,      
                             font_size=38,           
                             color='white', 
-                            font='arial.ttf', 
+                            font='Arial-Bold',      # ZMIANA: Pogrubiona wersja czcionki Arial
                             size=container_size,
                             text_align='center', 
-                            stroke_color='black',   # Czysty czarny kontur liter (jak na zdjęciu)
-                            stroke_width=2.5,       # Grubość konturu zapewniająca idealną ostrość i kontrast
+                            stroke_color='black',   # Czarny, wyraźny kontur
+                            stroke_width=3.5,       # ZMIANA: Zwiększona grubość obrysu dla lepszego kontrastu
                             method='caption' 
                         )
                         .with_start(start_sec)       
@@ -122,6 +123,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     )
     video.close()
     final_video.close()
+
 
 
 
