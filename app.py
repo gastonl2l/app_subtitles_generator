@@ -84,16 +84,17 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                     txt_clip = (
                         TextClip(
                             text=text_content,      
-                            font_size=14,           
+                            font_size=20,                       # Zwiększono rozmiar z 14 na 20
                             color='white', 
-                            font='LiberationSans-Regular.ttf', # Przenośna czcionka dla GitHub / Cloud
-                            bg_color='black',
+                            font='LiberationSans-Bold.ttf',     # Użycie pobranej wersji BOLD
                             size=(int(video.w * 0.8), None),
+                            stroke_color='black',               # Czarna krawędź wokół białych liter
+                            stroke_width=2,                     # Grubość obrysu (czytelność bez czarnego tła)
                             method='caption'
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
-                        .with_position(('center', video.h - 80))
+                        .with_position(('center', video.h - 150)) # Przesunięto wyżej (z -80 na -150)
                     )
                     subtitle_clips.append(txt_clip)
 
