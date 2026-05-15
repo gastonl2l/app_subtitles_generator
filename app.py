@@ -94,7 +94,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
-                        .with_position(('center', video.h - 150)) # Przesunięto wyżej (z -80 na -150)
+                        .with_position(('center', video.h - 220)) # Przesunięto wyżej (z -80 na -150)
                     )
                     subtitle_clips.append(txt_clip)
 
