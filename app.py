@@ -66,7 +66,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     subtitle_clips = []
 
-    # Określenie pozycji w pionie (wyżej - np. 260 pikseli od dołu ekranu)
+    # Stała pozycja w pionie (wyżej, dostosowana do dwóch linii tekstu)
     text_position_y = video.h - 260
 
     for block in blocks:
@@ -83,27 +83,10 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                 duration = end_sec - start_sec
 
                 if duration > 0:
-                    # 75% szerokości wymusza bezpieczny podział na 2 linie bez przecinania wyrazów
+                    # 75% szerokości wymusza bezpieczny podział na linie w miejscu spacji
                     container_size = (int(video.w * 0.75), None)
 
-                    # KLIP 1: Cień pod napisem (czarny, lekko pogrubiony obrysem dla efektu rozmycia)
-                    shadow_clip = (
-                        TextClip(
-                            text=text_content,      
-                            font_size=28,           
-                            color='black', 
-                            font='Montserrat-Bold.ttf',
-                            stroke_color='black',   # Pogrubienie krawędzi tworzy efekt głębi cienia
-                            stroke_width=4,         
-                            size=container_size,
-                            method='caption'
-                        )
-                        .with_start(start_sec)       
-                        .with_duration(duration)    
-                        .with_position(('center', text_position_y + 2)) # Przesunięty o 2 piksele w dół dla efektu 3D
-                    )
-
-                    # KLIP 2: Właściwy tekst (czysta biel, nałożony idealnie na wierzch cienia)
+                    # Jeden, czysty biały klip tekstowy bez cienia i obwódek
                     txt_clip = (
                         TextClip(
                             text=text_content,      
@@ -111,15 +94,13 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                             color='white', 
                             font='Montserrat-Bold.ttf',
                             size=container_size,
-                            method='caption'
+                            method='caption' # MoviePy automatycznie przenosi całe wyrazy do nowej linii
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
                         .with_position(('center', text_position_y))
                     )
                     
-                    # Dodajemy oba klipy (najpierw cień, potem tekst)
-                    subtitle_clips.append(shadow_clip)
                     subtitle_clips.append(txt_clip)
 
     # 4. Łączenie oryginalnego wideo z wygenerowanymi nakładkami tekstowymi
@@ -137,6 +118,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     # Zamykanie obiektów w celu zwolnienia pamięci RAM
     video.close()
     final_video.close()
+
 
 
 
