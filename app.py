@@ -8,49 +8,47 @@ import os
 import re
 from moviepy import VideoFileClip, TextClip, CompositeVideoClip
 
+# --- 1. WERYFIKACJA I INTERFEJS KLUCZA API OPENAI ---
+# Sprawdzenie, czy klucz jest już zapisany w stanie sesji
+if not st.session_state.get("openai_api_key"):
+    # Najpierw szukamy klucza w bezpiecznych sekretach (lokalnie lub w Streamlit Cloud)
+    if "OPENAI_API_KEY" in st.secrets:
+        st.session_state["openai_api_key"] = st.secrets["OPENAI_API_KEY"]
+    else:
+        # Jeśli klucza nie ma w sekretach, prosimy użytkownika o wpisanie go ręcznie
+        st.info("Dodaj swój klucz API OpenAI, aby móc korzystać z tej aplikacji")
+        user_key = st.text_input("Klucz API", type="password")
+        if user_key:
+            st.session_state["openai_api_key"] = user_key
+            st.rerun()
 
-# API_KEY pobierany z sekretów Streamlit Cloud
+# Blokada aplikacji, dopóki klucz nie zostanie dostarczony
+if not st.session_state.get("openai_api_key"):
+    st.stop()
+
+
+# --- 2. KONFIGURACJA KLIENTA I MODELU ---
 @st.cache_resource
 def get_openai_client():
-    return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    # Używamy klucza zweryfikowanego i zapisanego w st.session_state
+    return OpenAI(api_key=st.session_state["openai_api_key"])
 
-
-# Model
 AUDIO_TRANSCRIBE_MODEL = "whisper-1"
 
 
-# Funkcja transkrypcji dźwięków na napisy
+# --- 3. FUNKCJE PRZETWARZANIA WIDEO I AUDIO ---
 def transcribe_audio(audio_path):
     openai_client = get_openai_client()
-
     with open(audio_path, "rb") as audio_file:
         transcript = openai_client.audio.transcriptions.create(
             file=audio_file,
             model=AUDIO_TRANSCRIBE_MODEL,
             response_format="srt",
         )
-
     return transcript
 
 
-# Inicjalizacja stanów sesji
-if "note_audio_text" not in st.session_state:
-    st.session_state["note_audio_text"] = ""
-
-if "last_uploaded_file" not in st.session_state:
-    st.session_state["last_uploaded_file"] = None
-
-if "audio_ready" not in st.session_state:
-    st.session_state["audio_ready"] = False
-
-if "video_rendered" not in st.session_state:
-    st.session_state["video_rendered"] = False
-
-
-# Funkcja dodawania napisów do wideo przy użyciu moviepy
 def add_subtitles_to_video(video_path, srt_content, output_path):
-
-    # 1. Funkcja pomocnicza: konwersja czasu SRT na sekundy dla moviepy
     def srt_time_to_seconds(srt_time_str):
         srt_time_str = srt_time_str.replace(",", ".")
         match = re.match(r"(\d+):(\d+):(\d+\.\d+|\d+)", srt_time_str)
@@ -59,14 +57,11 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
             return h * 3600 + m * 60 + s
         return 0.0
 
-    # 2. Ładowanie bazowego pliku wideo
     video = VideoFileClip(video_path)
-    
-    # 3. Parsowanie bloków napisów SRT z pamięci podręcznej
     blocks = srt_content.strip().split("\n\n")
     subtitle_clips = []
 
-    # Pozycja przesunięta niżej (180 pikseli od dołu ekranu)
+    # Pozycja dostosowana tak, aby napisy były nieco niżej (180 px od dołu)
     text_position_y = video.h - 180
 
     for block in blocks:
@@ -75,7 +70,6 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
             time_line = lines[1]
             text_content = " ".join(lines[2:])
 
-            # Wyciąganie czasów wyświetlania napisu
             times = re.findall(r"\d{2}:\d{2}:\d{2}[,\.]\d{3}", time_line)
             if len(times) == 2:
                 start_sec = srt_time_to_seconds(times[0])
@@ -83,34 +77,27 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                 duration = end_sec - start_sec
 
                 if duration > 0:
-                    # Zwiększamy kontener do 85%, dając wyrazom więcej przestrzeni
+                    # Kontener zajmujący 85% szerokości ekranu
                     container_size = (int(video.w * 0.85), None)
-
-
-                    max_width = int(video.w * 0.8)
-                    max_height = int(video.h * 0.2)  # Rezerwujemy maksymalnie 20% wysokości ekranu na napis
+                    # Spacje ochronne zapobiegające ucinaniu skrajnych liter czcionki
+                    safe_text = f" {text_content} "
 
                     txt_clip = (
                         TextClip(
-                            text=text_content,      
-                            font_size=14,           
+                            text=safe_text,      
+                            font_size=28,           
                             color='white', 
-                            font='arial.ttf',           
-                            bg_color='black',
-                            size=(max_width, max_height), # Określamy sztywny kontener (szerokość, wysokość)
-                            method='caption'              # MoviePy automatycznie zawinie tekst i wycentruje w tym oknie
+                            font='Montserrat-Bold.ttf', # Przenośna czcionka
+                            size=container_size,
+                            method='caption' # Zawijanie słów do max 2 linii bez ucinania
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
-                        .with_position(('center', video.h - max_height - 20)) # Pozycjonowanie relatywne do dołu ekranu
+                        .with_position(('center', text_position_y))
                     )
-                                        
                     subtitle_clips.append(txt_clip)
 
-    # 4. Łączenie oryginalnego wideo z wygenerowanymi nakładkami tekstowymi
     final_video = CompositeVideoClip([video] + subtitle_clips)
-    
-    # 5. Zapisanie pliku końcowego
     final_video.write_videofile(
         output_path, 
         codec="libx264", 
@@ -118,17 +105,22 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         temp_audiofile="temp-audio.m4a", 
         remove_temp=True
     )
-    
-    # Zamykanie obiektów w celu zwolnienia pamięci RAM
     video.close()
     final_video.close()
 
 
+# --- 4. INICJALIZACJA STANÓW SESJI INTERFEJSU ---
+if "note_audio_text" not in st.session_state:
+    st.session_state["note_audio_text"] = ""
+if "last_uploaded_file" not in st.session_state:
+    st.session_state["last_uploaded_file"] = None
+if "audio_ready" not in st.session_state:
+    st.session_state["audio_ready"] = False
+if "video_rendered" not in st.session_state:
+    st.session_state["video_rendered"] = False
 
 
-
-
-# Title
+# --- 5. INTERFEJS UŻYTKOWNIKA ---
 st.title("Generator napisów App")
 
 uploaded_file = st.file_uploader(
@@ -137,8 +129,6 @@ uploaded_file = st.file_uploader(
 )
 
 if uploaded_file is not None:
-
-    # nowe video → wyczyść stary stan aplikacji
     if uploaded_file.name != st.session_state["last_uploaded_file"]:
         st.session_state["note_audio_text"] = ""
         st.session_state["last_uploaded_file"] = uploaded_file.name
@@ -150,64 +140,43 @@ if uploaded_file is not None:
         if os.path.exists("video_with_subtitles.mp4"):
             os.remove("video_with_subtitles.mp4")
 
-    # zapis video do pliku tymczasowego
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_video:
         file_bytes = uploaded_file.getvalue()
         tmp_video.write(file_bytes)
         video_path = tmp_video.name
 
     col1, col2, col3 = st.columns([1, 2, 1])
-
     with col2:
         st.video(video_path)
 
-    # output audio
     audio_path = "audio.mp3"
-
-    # ffmpeg command do ekstrakcji audio
     command = [
-        "ffmpeg",
-        "-i", video_path,
-        "-q:a", "0",
-        "-map", "a",
-        audio_path,
-        "-y"
+        "ffmpeg", "-i", video_path, "-q:a", "0", "-map", "a", audio_path, "-y"
     ]
 
-    # progress bar dla ekstrakcji audio
     if not st.session_state["audio_ready"]:
         progress_bar = st.progress(0)
         process = subprocess.Popen(command)
-
         for percent in range(100):
             import time
             time.sleep(0.05)
             progress_bar.progress(percent + 1)
-
         process.wait()
         st.session_state["audio_ready"] = True
         st.toast("Audio extracted!")
 
     st.audio(audio_path)
 
-    # Przycisk generowania napisów przez OpenAI Whisper
     if st.button("Generuj napisy"):
         with st.spinner("Transcribing audio..."):
             st.session_state["note_audio_text"] = transcribe_audio(audio_path)
         st.success("Napisy wygenerowane!")
 
-    # Zakładki interfejsu
     tab1, tab2 = st.tabs(["Napisy", "Wideo z napisami"])
 
     with tab1:
-        # wyświetl napisy i pobierz napisy SRT
         if st.session_state["note_audio_text"]:
-            st.text_area(
-                "napisy SRT",
-                value=st.session_state["note_audio_text"],
-                height=400
-            )
-
+            st.text_area("napisy SRT", value=st.session_state["note_audio_text"], height=400)
             st.download_button(
                 "Pobierz napisy",
                 st.session_state["note_audio_text"],
@@ -216,36 +185,26 @@ if uploaded_file is not None:
             )
 
     with tab2:
-        if "video_rendered" not in st.session_state:
-            st.session_state["video_rendered"] = False
-
         if st.button("Generuj wideo z napisami"):
             if not st.session_state["note_audio_text"]:
                 st.error("Najpierw wygeneruj napisy w pierwszej zakładce!")
             else:
                 output_video_path = "video_with_subtitles.mp4"
-
-                # NOWOŚĆ: Profesjonalny pasek stanu ładowania st.status
                 with st.status("Rozpoczynanie renderowania...", expanded=True) as status:
                     try:
-                        status.update(label="Trwa przetwarzanie wideo i nakładanie napisów... (To może chwilę potrwać)", state="running")
-                        
+                        status.update(label="Trwa nakładanie napisów...", state="running")
                         add_subtitles_to_video(video_path, st.session_state["note_audio_text"], output_video_path)
-                        
                         st.session_state["video_rendered"] = True
-                        status.update(label="Wideo zostało pomyślnie wygenerowane!", state="complete", expanded=False)
+                        status.update(label="Wideo wygenerowane pomyślnie!", state="complete", expanded=False)
                         st.toast("Video ready!", icon="🎬")
                     except Exception as e:
-                        status.update(label="Wystąpił błąd podczas generowania wideo", state="error")
+                        status.update(label="Wystąpił błąd podczas generowania", state="error")
                         st.error(f"Wystąpił błąd: {e}")
 
-        # Wyświetlanie gotowego pliku i przycisku pobierania
         if st.session_state["video_rendered"] and os.path.exists("video_with_subtitles.mp4"):
             col1, col2, col3 = st.columns([1, 2, 1])
-
             with col2:
                 st.video("video_with_subtitles.mp4")
-
             with open("video_with_subtitles.mp4", "rb") as file:
                 st.download_button(
                     "Pobierz wideo",
