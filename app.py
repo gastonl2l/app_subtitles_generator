@@ -66,8 +66,8 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     subtitle_clips = []
 
-    # Stała pozycja w pionie (wyżej, dostosowana do dwóch linii tekstu)
-    text_position_y = video.h - 260
+    # ZMIANA: Pozycja przesunięta niżej (z -260 na -180)
+    text_position_y = video.h - 180
 
     for block in blocks:
         lines = block.split("\n")
@@ -83,18 +83,20 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                 duration = end_sec - start_sec
 
                 if duration > 0:
-                    # 75% szerokości wymusza bezpieczny podział na linie w miejscu spacji
-                    container_size = (int(video.w * 0.75), None)
+                    # Kontener zajmujący 80% szerokości ekranu
+                    container_size = (int(video.w * 0.80), None)
 
-                    # Jeden, czysty biały klip tekstowy bez cienia i obwódek
+                    # Klip tekstowy zabezpieczony przed ucinaniem liter
                     txt_clip = (
                         TextClip(
                             text=text_content,      
-                            font_size=20,           
+                            font_size=28,           
                             color='white', 
                             font='arial.ttf',
                             size=container_size,
-                            method='caption' # MoviePy automatycznie przenosi całe wyrazy do nowej linii
+                            kerning=-0.2,               # Lekkie zagęszczenie liter zapobiega obcinaniu brzegów przez ImageMagick
+                            margin=10,                  # Dodaje bezpieczny margines wewnętrzny wokół tekstu
+                            method='caption'            # Zawija całe słowa bez ich dzielenia
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
@@ -118,6 +120,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     # Zamykanie obiektów w celu zwolnienia pamięci RAM
     video.close()
     final_video.close()
+
 
 
 
