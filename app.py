@@ -85,7 +85,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                     txt_clip = (
                         TextClip(
                             text=safe_text,      
-                            font_size=42,           
+                            font_size=56,           
                             color='white', 
                             font='arial.ttf', # Przenośna czcionka
                             size=container_size,
