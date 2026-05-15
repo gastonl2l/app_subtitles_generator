@@ -62,6 +62,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     subtitle_clips = []
 
     # Pozycja dostosowana tak, aby napisy były nieco niżej 
+        # Pozycja napisów (wartość -300 zapobiega nakładaniu na dół ekranu)
     text_position_y = video.h - 300
 
     for block in blocks:
@@ -77,25 +78,32 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                 duration = end_sec - start_sec
 
                 if duration > 0:
-                    # Kontener zajmujący 85% szerokości ekranu
-                    container_size = (int(video.w * 0.85), None)
-                    # Spacje ochronne zapobiegające ucinaniu skrajnych liter czcionki
-                    safe_text = f" {text_content} "
+                    # TRICK: Automatyczne dzielenie tekstu na 2 linie, jeśli ma więcej niż 5 słów
+                    words = text_content.split()
+                    if len(words) > 5:
+                        midpoint = len(words) // 2
+                        formatted_text = " ".join(words[:midpoint]) + "\n" + " ".join(words[midpoint:])
+                    else:
+                        formatted_text = text_content
+
+                    # Dodajemy spacje po bokach każdej linii dla 100% bezpieczeństwa liter
+                    safe_text = "\n".join([f" {line} " for line in formatted_text.split("\n")])
 
                     txt_clip = (
                         TextClip(
                             text=safe_text,      
                             font_size=56,           
                             color='white', 
-                            font='arial.ttf', # Przenośna czcionka
-                            size=container_size,
-                            method='caption' # Zawijanie słów do max 2 linii bez ucinania
+                            font='arial.ttf', 
+                            text_align='center', # Wyśrodkowanie tekstu wewnątrz ramki
+                            method='label'       # 'label' tworzy ramkę idealnie dopasowaną do tekstu
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
                         .with_position(('center', text_position_y))
                     )
                     subtitle_clips.append(txt_clip)
+
 
     final_video = CompositeVideoClip([video] + subtitle_clips)
     final_video.write_videofile(
