@@ -84,17 +84,18 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                     txt_clip = (
                         TextClip(
                             text=text_content,      
-                            font_size=20,                       # Zwiększono rozmiar z 14 na 20
+                            font_size=28,                       # Zwiększono rozmiar, aby napisy były czytelne
                             color='white', 
-                            font='LiberationSans-Bold.ttf',     # Użycie pobranej wersji BOLD
-                            size=(int(video.w * 0.8), None),
-                            stroke_color='black',               # Czarna krawędź wokół białych liter
-                            stroke_width=2,                     # Grubość obrysu (czytelność bez czarnego tła)
-                            method='caption'
+                            font='Montserrat-Bold.ttf',         # Nowoczesna, gruba czcionka bezszeryfowa
+                            size=(int(video.w * 0.75), None),   # Szerokość 75% ekranu wymusza podział na max 2-3 linie bez ucinania słów
+                            shadow_color='black',               # Kolor cienia pod napisami
+                            shadow_radius=5,                    # Rozmycie cienia (tworzy efekt miękkiego blasku z obrazka)
+                            text_align='center',                # Centrowanie tekstu w poziomie
+                            method='caption'                    # Bezpieczne zawijanie całych słów do nowej linii
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
-                        .with_position(('center', video.h - 220)) # Przesunięto wyżej (z -80 na -150)
+                        .with_position(('center', video.h - 260)) # Pozycja wyżej, dopasowana do układu wieloliniowego
                     )
                     subtitle_clips.append(txt_clip)
 
