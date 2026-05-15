@@ -90,9 +90,9 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                     txt_clip = (
                         TextClip(
                             text=text_content,      
-                            font_size=14,           
+                            font_size=20,           
                             color='white', 
-                            font='Montserrat-Bold.ttf',
+                            font='arial.ttf',
                             size=container_size,
                             method='caption' # MoviePy automatycznie przenosi całe wyrazy do nowej linii
                         )
