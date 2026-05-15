@@ -50,7 +50,7 @@ if "video_rendered" not in st.session_state:
 # Funkcja dodawania napisów do wideo przy użyciu moviepy
 def add_subtitles_to_video(video_path, srt_content, output_path):
 
-    # 1. Funkcja pomocnicza: konwersja czasu SRT (00:00:05,123) na sekundy dla moviepy
+    # 1. Funkcja pomocnicza: konwersja czasu SRT na sekundy dla moviepy
     def srt_time_to_seconds(srt_time_str):
         srt_time_str = srt_time_str.replace(",", ".")
         match = re.match(r"(\d+):(\d+):(\d+\.\d+|\d+)", srt_time_str)
@@ -66,6 +66,9 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     subtitle_clips = []
 
+    # Określenie pozycji w pionie (wyżej - np. 260 pikseli od dołu ekranu)
+    text_position_y = video.h - 260
+
     for block in blocks:
         lines = block.split("\n")
         if len(lines) >= 3:
@@ -80,23 +83,43 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                 duration = end_sec - start_sec
 
                 if duration > 0:
-                    # ZACHOWANO TWÓJ STYL WYŚWIETLANIA NAPISÓW
-                    txt_clip = (
+                    # 75% szerokości wymusza bezpieczny podział na 2 linie bez przecinania wyrazów
+                    container_size = (int(video.w * 0.75), None)
+
+                    # KLIP 1: Cień pod napisem (czarny, lekko pogrubiony obrysem dla efektu rozmycia)
+                    shadow_clip = (
                         TextClip(
                             text=text_content,      
-                            font_size=28,                       # Zwiększono rozmiar, aby napisy były czytelne
-                            color='white', 
-                            font='Montserrat-Bold.ttf',         # Nowoczesna, gruba czcionka bezszeryfowa
-                            size=(int(video.w * 0.75), None),   # Szerokość 75% ekranu wymusza podział na max 2-3 linie bez ucinania słów
-                            shadow_color='black',               # Kolor cienia pod napisami
-                            shadow_radius=5,                    # Rozmycie cienia (tworzy efekt miękkiego blasku z obrazka)
-                            text_align='center',                # Centrowanie tekstu w poziomie
-                            method='caption'                    # Bezpieczne zawijanie całych słów do nowej linii
+                            font_size=28,           
+                            color='black', 
+                            font='Montserrat-Bold.ttf',
+                            stroke_color='black',   # Pogrubienie krawędzi tworzy efekt głębi cienia
+                            stroke_width=4,         
+                            size=container_size,
+                            method='caption'
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
-                        .with_position(('center', video.h - 260)) # Pozycja wyżej, dopasowana do układu wieloliniowego
+                        .with_position(('center', text_position_y + 2)) # Przesunięty o 2 piksele w dół dla efektu 3D
                     )
+
+                    # KLIP 2: Właściwy tekst (czysta biel, nałożony idealnie na wierzch cienia)
+                    txt_clip = (
+                        TextClip(
+                            text=text_content,      
+                            font_size=28,           
+                            color='white', 
+                            font='Montserrat-Bold.ttf',
+                            size=container_size,
+                            method='caption'
+                        )
+                        .with_start(start_sec)       
+                        .with_duration(duration)    
+                        .with_position(('center', text_position_y))
+                    )
+                    
+                    # Dodajemy oba klipy (najpierw cień, potem tekst)
+                    subtitle_clips.append(shadow_clip)
                     subtitle_clips.append(txt_clip)
 
     # 4. Łączenie oryginalnego wideo z wygenerowanymi nakładkami tekstowymi
@@ -111,9 +134,10 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         remove_temp=True
     )
     
-    # Zamykanie obiektów w celu zwolnienia pamięci RAM i odblokowania plików
+    # Zamykanie obiektów w celu zwolnienia pamięci RAM
     video.close()
     final_video.close()
+
 
 
 # Title
