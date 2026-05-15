@@ -95,7 +95,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                             text=text_content,      
                             font_size=14,           
                             color='white', 
-                            font=r'C:\Windows\Fonts\arial.ttf',           
+                            font='arial.ttf',           
                             bg_color='black',
                             size=(max_width, max_height), # Określamy sztywny kontener (szerokość, wysokość)
                             method='caption'              # MoviePy automatycznie zawinie tekst i wycentruje w tym oknie
