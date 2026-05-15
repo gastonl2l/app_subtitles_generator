@@ -61,9 +61,8 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     subtitle_clips = []
 
-    # Pozycja dostosowana tak, aby napisy były nieco niżej 
-        # Pozycja napisów (wartość -300 zapobiega nakładaniu na dół ekranu)
-    text_position_y = video.h - 300
+    # Pozycja wyżej (320 pikseli od dołu ekranu), aby zmieścić 2 duże linie tekstu
+    text_position_y = video.h - 320
 
     for block in blocks:
         lines = block.split("\n")
@@ -78,32 +77,30 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                 duration = end_sec - start_sec
 
                 if duration > 0:
-                    # TRICK: Automatyczne dzielenie tekstu na 2 linie, jeśli ma więcej niż 5 słów
-                    words = text_content.split()
-                    if len(words) > 5:
-                        midpoint = len(words) // 2
-                        formatted_text = " ".join(words[:midpoint]) + "\n" + " ".join(words[midpoint:])
-                    else:
-                        formatted_text = text_content
+                    # 1. SZTYWNA SZEROKOŚĆ (75% ekranu) - gwarantuje, że tekst NIGDY nie wyjdzie poza wideo
+                    container_width = int(video.w * 0.75)
+                    container_size = (container_width, None)
 
-                    # Dodajemy spacje po bokach każdej linii dla 100% bezpieczeństwa liter
-                    safe_text = "\n".join([f" {line} " for line in formatted_text.split("\n")])
+                    # 2. DODANIE SPACJI OCHRONNYCH na początku i końcu, aby zapobiec obcinaniu skrajnych liter
+                    safe_text = f" {text_content} "
 
                     txt_clip = (
                         TextClip(
                             text=safe_text,      
-                            font_size=56,           
+                            font_size=38,               # Zoptymalizowany rozmiar (czcionka 56 była zbyt ogromna na 2 linie i wypychała tekst)
                             color='white', 
-                            font='arial.ttf', 
-                            text_align='center', # Wyśrodkowanie tekstu wewnątrz ramki
-                            method='label'       # 'label' tworzy ramkę idealnie dopasowaną do tekstu
+                            font='arial.ttf',           # Standardowa czcionka, bez błędów zasobów
+                            size=container_size,
+                            text_align='center',        # Wyśrodkowanie tekstu w poziomie
+                            stroke_color='white',       # TRICK: Przezroczysty/biały minimalny obrys...
+                            stroke_width=1,             # ...który dodaje padding i sztucznie chroni litery przed obcięciem krawędzi
+                            method='caption'            # Wymusza zawijanie słów wewnątrz 75% szerokości ekranu
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
                         .with_position(('center', text_position_y))
                     )
                     subtitle_clips.append(txt_clip)
-
 
     final_video = CompositeVideoClip([video] + subtitle_clips)
     final_video.write_videofile(
