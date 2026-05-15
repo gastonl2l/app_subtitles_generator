@@ -61,14 +61,14 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     subtitle_clips = []
 
-    # Pozycja wyżej (320 pikseli od dołu ekranu), aby zmieścić 2 duże linie tekstu
-    text_position_y = video.h - 320
+    # Pozycja dostosowana do 2 linii tekstu (240 pikseli od dołu ekranu)
+    text_position_y = video.h - 240
 
     for block in blocks:
         lines = block.split("\n")
         if len(lines) >= 3:
             time_line = lines[1]
-            text_content = " ".join(lines[2:])
+            text_content = " ".join(lines[2:]).strip()
 
             times = re.findall(r"\d{2}:\d{2}:\d{2}[,\.]\d{3}", time_line)
             if len(times) == 2:
@@ -77,24 +77,33 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                 duration = end_sec - start_sec
 
                 if duration > 0:
-                    # 1. SZTYWNA SZEROKOŚĆ (75% ekranu) - gwarantuje, że tekst NIGDY nie wyjdzie poza wideo
-                    container_width = int(video.w * 0.75)
-                    container_size = (container_width, None)
+                    # 1. INTELIGENTNE DZIELENIE NA MAX 2 LINIE W MIEJSCU SPACJI
+                    words = text_content.split()
+                    if len(words) > 4:
+                        midpoint = len(words) // 2
+                        # Dzielimy zdanie na pół i łączymy znakiem nowej linii \n
+                        formatted_text = " ".join(words[:midpoint]) + "\n" + " ".join(words[midpoint:])
+                    else:
+                        formatted_text = text_content
 
-                    # 2. DODANIE SPACJI OCHRONNYCH na początku i końcu, aby zapobiec obcinaniu skrajnych liter
-                    safe_text = f" {text_content} "
+                    # 2. DODANIE SPACJI OCHRONNYCH DO KAŻDEJ Z LINII (zapobiega ucinaniu liter)
+                    safe_lines = [f" {line.strip()} " for line in formatted_text.split("\n")]
+                    final_text = "\n".join(safe_lines)
+
+                    # 3. SZEROKI KONTENER (95% ekranu) - zapobiega przypadkowym przeskokom do 3 i 4 linii
+                    container_size = (int(video.w * 0.95), None)
 
                     txt_clip = (
                         TextClip(
-                            text=safe_text,      
-                            font_size=38,               # Zoptymalizowany rozmiar (czcionka 56 była zbyt ogromna na 2 linie i wypychała tekst)
+                            text=final_text,      
+                            font_size=38,           
                             color='white', 
-                            font='arial.ttf',           # Standardowa czcionka, bez błędów zasobów
+                            font='arial.ttf', 
                             size=container_size,
-                            text_align='center',        # Wyśrodkowanie tekstu w poziomie
-                            stroke_color='white',       # TRICK: Przezroczysty/biały minimalny obrys...
-                            stroke_width=1,             # ...który dodaje padding i sztucznie chroni litery przed obcięciem krawędzi
-                            method='caption'            # Wymusza zawijanie słów wewnątrz 75% szerokości ekranu
+                            text_align='center', 
+                            stroke_color='white',   # Dodatkowy piksel ochrony skrajnych liter
+                            stroke_width=1,
+                            method='caption' 
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
@@ -112,6 +121,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     )
     video.close()
     final_video.close()
+
 
 
 # --- 4. INICJALIZACJA STANÓW SESJI INTERFEJSU ---
