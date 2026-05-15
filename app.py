@@ -66,7 +66,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     subtitle_clips = []
 
-    # ZMIANA: Pozycja przesunięta niżej (z -260 na -180)
+    # Pozycja przesunięta niżej (180 pikseli od dołu ekranu)
     text_position_y = video.h - 180
 
     for block in blocks:
@@ -83,20 +83,21 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                 duration = end_sec - start_sec
 
                 if duration > 0:
-                    # Kontener zajmujący 80% szerokości ekranu
-                    container_size = (int(video.w * 0.80), None)
+                    # Zwiększamy kontener do 85%, dając wyrazom więcej przestrzeni
+                    container_size = (int(video.w * 0.85), None)
 
-                    # Klip tekstowy zabezpieczony przed ucinaniem liter
+                    # TRICK: Dodajemy spacje ochronne na początku i końcu tekstu
+                    # Zapobiega to ucinaniu brzegu pierwszej i ostatniej litery w linii
+                    safe_text = f" {text_content} "
+
                     txt_clip = (
                         TextClip(
-                            text=text_content,      
+                            text=safe_text,      
                             font_size=28,           
                             color='white', 
                             font='arial.ttf',
                             size=container_size,
-                            kerning=-0.2,               # Lekkie zagęszczenie liter zapobiega obcinaniu brzegów przez ImageMagick
-                            margin=10,                  # Dodaje bezpieczny margines wewnętrzny wokół tekstu
-                            method='caption'            # Zawija całe słowa bez ich dzielenia
+                            method='caption' # Automatyczne zawijanie całych wyrazów
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
@@ -120,6 +121,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     # Zamykanie obiektów w celu zwolnienia pamięci RAM
     video.close()
     final_video.close()
+
 
 
 
