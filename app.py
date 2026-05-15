@@ -98,8 +98,8 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                         TextClip(
                             text=final_text,      
                             font_size=38,           
-                            color='white', 
-                            font='arial-bold',      # ZMIANA: Pogrubiona wersja czcionki Arial
+                            color='white',
+                            font='arial-bold.ttf',      # ZMIANA: Pogrubiona wersja czcionki Arial
                             size=container_size,
                             text_align='center', 
                             stroke_color='black',   # Czarny, wyraźny kontur
