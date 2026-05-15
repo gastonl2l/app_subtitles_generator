@@ -80,25 +80,21 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                 duration = end_sec - start_sec
 
                 if duration > 0:
-                    max_width = int(video.w * 0.8)
-                    max_height = int(video.h * 0.2)  # Rezerwujemy maksymalnie 20% wysokości ekranu na napis
-
-                    # Tworzenie klatki tekstowej za pomocą wbudowanych mechanizmów MoviePy
+                    # ZACHOWANO TWÓJ STYL WYŚWIETLANIA NAPISÓW
                     txt_clip = (
                         TextClip(
                             text=text_content,      
                             font_size=14,           
                             color='white', 
-                            font='LiberationSans-Regular.ttf', # Plik czcionki musi znajdować się w projekcie
+                            font='LiberationSans-Regular.ttf', # Przenośna czcionka dla GitHub / Cloud
                             bg_color='black',
-                            size=(max_width, max_height), 
-                            method='caption'              
+                            size=(int(video.w * 0.8), None),
+                            method='caption'
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
-                        .with_position(('center', video.h - max_height - 20)) 
+                        .with_position(('center', video.h - 80))
                     )
-                    # POPRAWKA: Dodanie wygenerowanego klipu tekstowego do listy
                     subtitle_clips.append(txt_clip)
 
     # 4. Łączenie oryginalnego wideo z wygenerowanymi nakładkami tekstowymi
@@ -215,12 +211,11 @@ if uploaded_file is not None:
             else:
                 output_video_path = "video_with_subtitles.mp4"
 
-                # Zastąpienie st.spinner przez dynamiczny st.status
+                # NOWOŚĆ: Profesjonalny pasek stanu ładowania st.status
                 with st.status("Rozpoczynanie renderowania...", expanded=True) as status:
                     try:
                         status.update(label="Trwa przetwarzanie wideo i nakładanie napisów... (To może chwilę potrwać)", state="running")
                         
-                        # Wywołanie Twojej funkcji renderującej
                         add_subtitles_to_video(video_path, st.session_state["note_audio_text"], output_video_path)
                         
                         st.session_state["video_rendered"] = True
@@ -230,7 +225,7 @@ if uploaded_file is not None:
                         status.update(label="Wystąpił błąd podczas generowania wideo", state="error")
                         st.error(f"Wystąpił błąd: {e}")
 
-        # POPRAWKA DO URWANEGO KODU: Wyświetlanie gotowego pliku i przycisku pobierania
+        # Wyświetlanie gotowego pliku i przycisku pobierania
         if st.session_state["video_rendered"] and os.path.exists("video_with_subtitles.mp4"):
             col1, col2, col3 = st.columns([1, 2, 1])
 
