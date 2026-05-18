@@ -62,7 +62,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     subtitle_clips = []
 
     # Pozycja napisu w pionie (ok. 240 pikseli od dołu, idealna dla 2 linii)
-    text_position_y = video.h - 240
+    text_position_y = video.h - 380
 
     for block in blocks:
         lines = block.split("\n")
@@ -116,7 +116,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                             size=container_size,
                             text_align='center', 
                             stroke_color='black',   # Czarny, wyraźny kontur
-                            stroke_width=5,       # ZMIANA: Zwiększona grubość obrysu dla lepszego kontrastu
+                            stroke_width=3,       # ZMIANA: Zwiększona grubość obrysu dla lepszego kontrastu
                             method='caption' 
                         )
                         .with_start(start_sec)       
