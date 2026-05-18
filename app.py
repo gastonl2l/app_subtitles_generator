@@ -100,17 +100,17 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                         formatted_text = text_content
 
                     # 2. DODANIE SPACJI OCHRONNYCH DO KAŻDEJ Z LINII (zapobiega ścinaniu krawędzi liter)
-                    safe_lines = [f" {line.strip()} " for line in formatted_text.split("\n")]
+                    safe_lines = [line.strip() for line in formatted_text.split("\n")]
                     final_text = "\n".join(safe_lines)
 
                     # 3. BARDZO SZEROKI KONTENER (98% ekranu) - blokuje przypadkowe przeskoki do 3 linii przy grubej czcionce
-                    container_size = (int(video.w * 0,8), None)
+                    container_size = (int(video.w * 0.80), None)
 
                     # 4. JEDEN KLIP: Pogrubiona czcionka (Bold) z mocnym konturem
                     txt_clip = (
                         TextClip(
                             text=final_text,      
-                            font_size=42,           
+                            font_size=38,           
                             color='white',
                             font='Arial Black.ttf',      # ZMIANA: Pogrubiona wersja czcionki Arial
                             size=container_size,
