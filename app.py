@@ -59,20 +59,16 @@ def transcribe_audio(audio_path):
 
 def add_subtitles_to_video(video_path, srt_content, output_path):
 
-    # 1. zapis SRT jako pełna ścieżka
-    #srt_path = os.path.abspath("subs.srt")
-    srt_path = os.path.abspath("subs.srt").replace("\\", "/")
-    srt_path = srt_path.replace(":", "\\:")
+    srt_path = "subs.srt"
 
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(srt_content)
 
-    # 2. FFmpeg (stabilna wersja)
     command = [
         "ffmpeg",
         "-y",
         "-i", video_path,
-        "-vf", f"subtitles={srt_path}:force_style=Fontsize=28,Outline=2,Alignment=2,WrapStyle=2",
+        "-vf", "subtitles=subs.srt:force_style='Fontsize=28,Outline=2,Alignment=2'",
         "-c:a", "copy",
         output_path
     ]
