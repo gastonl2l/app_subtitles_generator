@@ -6,8 +6,8 @@ from openai import OpenAI
 import shutil
 import os
 import re
-from moviepy import VideoFileClip, TextClip, CompositeVideoClip
-from PIL import Image, ImageDraw, ImageFont
+import subprocess
+
 
 
 
@@ -59,55 +59,32 @@ def transcribe_audio(audio_path):
 
 def add_subtitles_to_video(video_path, srt_content, output_path):
 
-    video = VideoFileClip(video_path)
-    clips = []
+    # 1. zapis SRT jako pełna ścieżka
+    #srt_path = os.path.abspath("subs.srt")
+    srt_path = os.path.abspath("subs.srt").replace("\\", "/")
 
-    blocks = srt_content.strip().split("\n\n")
+    with open(srt_path, "w", encoding="utf-8") as f:
+        f.write(srt_content)
 
-    for block in blocks:
-        lines = block.split("\n")
+    # 2. FFmpeg (stabilna wersja)
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i", video_path,
+        "-vf", f"subtitles={srt_path}:force_style=Fontsize=28,Outline=2,Alignment=2,WrapStyle=2",
+        "-c:a", "copy",
+        output_path
+    ]
 
-        if len(lines) < 3:
-            continue
+    subprocess.run(command, check=True)
 
-        time_line = lines[1]
-        text = " ".join(lines[2:]).strip()
 
-        times = re.findall(r"\d{2}:\d{2}:\d{2}[,\.]\d{3}", time_line)
 
-        if len(times) != 2:
-            continue
 
-        start = srt_time_to_seconds(times[0])
-        end = srt_time_to_seconds(times[1])
 
-        duration = end - start
 
-        if duration <= 0:
-            continue
 
-        clip = (
-            TextClip(
-                text=text,
-                font_size=38,
-                color="white",
-                font="arial-bold.ttf",
-                stroke_color="black",
-                stroke_width=3,
-                method="caption",
-                size=(int(video.w * 0.85), None),
-                text_align="center"
-            )
-            .with_start(start)
-            .with_duration(duration)
-            .with_position(("center", int(video.h * 0.72)))
-        )
 
-        clips.append(clip)
-
-   
-    final = CompositeVideoClip([video] + clips)
-    final.write_videofile(output_path, fps=video.fps, codec="libx264", audio_codec="aac")
 
 
 
