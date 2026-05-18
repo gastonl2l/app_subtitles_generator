@@ -97,7 +97,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         header = "\n".join(lines[:2])
         text = " ".join(lines[2:]).strip()
 
-        text = force_two_lines(text, max_chars=42)
+        text = force_two_lines(text, max_chars=22)
 
         new_blocks.append(header + "\n" + text)
 
@@ -232,3 +232,6 @@ if uploaded_file is not None:
                     file_name="video_with_subtitles.mp4",
                     mime="video/mp4"
                 )
+
+
+        
