@@ -79,31 +79,44 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                 if duration > 0:
                     # 1. WYMUSZENIE DOKŁADNIE 2 LINII TEKSTU (Dzielenie zdania równo na pół)
                     words = text_content.split()
-                    if len(words) >= 2:
-                        midpoint = (len(words) + 1) // 2  # Zaokrąglenie w górę dla lepszego balansu linii
-                        formatted_text = " ".join(words[:midpoint]) + "\n" + " ".join(words[midpoint:])
+
+                    if len(words) > 1:
+                        half = len(text_content) // 2
+
+                        current_len = 0
+                        split_index = 0
+
+                        for i, word in enumerate(words):
+                            current_len += len(word) + 1
+                            if current_len >= half:
+                                split_index = i + 1
+                                break
+
+                        line1 = " ".join(words[:split_index])
+                        line2 = " ".join(words[split_index:])
+
+                        formatted_text = f"{line1}\n{line2}"
                     else:
-                        # Jeśli jest tylko jedno słowo, dodajemy pustą linię pod spodem, by zachować stały rozmiar kontenera
-                        formatted_text = text_content + "\n"
+                        formatted_text = text_content
 
                     # 2. DODANIE SPACJI OCHRONNYCH DO KAŻDEJ Z LINII (zapobiega ścinaniu krawędzi liter)
                     safe_lines = [f" {line.strip()} " for line in formatted_text.split("\n")]
                     final_text = "\n".join(safe_lines)
 
                     # 3. BARDZO SZEROKI KONTENER (98% ekranu) - blokuje przypadkowe przeskoki do 3 linii przy grubej czcionce
-                    container_size = (int(video.w * 0.98), None)
+                    container_size = (int(video.w * 1.2), None)
 
                     # 4. JEDEN KLIP: Pogrubiona czcionka (Bold) z mocnym konturem
                     txt_clip = (
                         TextClip(
                             text=final_text,      
-                            font_size=38,           
+                            font_size=42,           
                             color='white',
-                            font='arial-bold.ttf',      # ZMIANA: Pogrubiona wersja czcionki Arial
+                            font='Arial-Black.ttf',      # ZMIANA: Pogrubiona wersja czcionki Arial
                             size=container_size,
                             text_align='center', 
                             stroke_color='black',   # Czarny, wyraźny kontur
-                            stroke_width=3.5,       # ZMIANA: Zwiększona grubość obrysu dla lepszego kontrastu
+                            stroke_width=5,       # ZMIANA: Zwiększona grubość obrysu dla lepszego kontrastu
                             method='caption' 
                         )
                         .with_start(start_sec)       
