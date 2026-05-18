@@ -45,6 +45,28 @@ def srt_time_to_seconds(t):
     h, m, s = t.split(":")
     return int(h) * 3600 + int(m) * 60 + float(s)
 
+
+# def 2 line
+def force_two_lines(text, max_chars=42):
+    words = text.split()
+
+    line1 = ""
+    line2 = ""
+
+    for w in words:
+        if len(line1 + " " + w) <= max_chars:
+            line1 += " " + w
+        else:
+            line2 += " " + w
+
+    line1 = line1.strip()
+    line2 = line2.strip()
+
+    if line2:
+        return line1 + "\n" + line2
+    else:
+        return line1
+
 # --- 3. FUNKCJE PRZETWARZANIA WIDEO I AUDIO ---
 def transcribe_audio(audio_path):
     openai_client = get_openai_client()
@@ -61,14 +83,32 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
 
     srt_path = "subs.srt"
 
+    blocks = srt_content.strip().split("\n\n")
+    new_blocks = []
+
+    for block in blocks:
+        lines = block.split("\n")
+
+        if len(lines) < 3:
+            continue
+
+        header = "\n".join(lines[:2])
+        text = " ".join(lines[2:]).strip()
+
+        text = force_two_lines(text, max_chars=42)
+
+        new_blocks.append(header + "\n" + text)
+
+    final_srt = "\n\n".join(new_blocks)
+
     with open(srt_path, "w", encoding="utf-8") as f:
-        f.write(srt_content)
+        f.write(final_srt)
 
     command = [
         "ffmpeg",
         "-y",
         "-i", video_path,
-        "-vf", "subtitles=subs.srt:force_style='Fontsize=28,Outline=2,Alignment=2'",
+        "-vf", "subtitles=subs.srt:force_style='Fontsize=22,Outline=2,Alignment=2'",
         "-c:a", "copy",
         output_path
     ]
