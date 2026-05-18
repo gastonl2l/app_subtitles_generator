@@ -113,11 +113,10 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                             font_size=38,           
                             color='white',
                             font='Arial Black.ttf',      # ZMIANA: Pogrubiona wersja czcionki Arial
-                            size=container_size,
                             text_align='center', 
                             stroke_color='black',   # Czarny, wyraźny kontur
                             stroke_width=3,       # ZMIANA: Zwiększona grubość obrysu dla lepszego kontrastu
-                            method='caption' 
+                            method='label' 
                         )
                         .with_start(start_sec)       
                         .with_duration(duration)    
