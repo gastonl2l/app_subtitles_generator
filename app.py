@@ -104,7 +104,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                     final_text = "\n".join(safe_lines)
 
                     # 3. BARDZO SZEROKI KONTENER (98% ekranu) - blokuje przypadkowe przeskoki do 3 linii przy grubej czcionce
-                    container_size = (int(video.w * 1.2), None)
+                    container_size = (int(video.w * 0,8), None)
 
                     # 4. JEDEN KLIP: Pogrubiona czcionka (Bold) z mocnym konturem
                     txt_clip = (
