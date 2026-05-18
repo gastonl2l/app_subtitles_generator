@@ -97,7 +97,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         header = "\n".join(lines[:2])
         text = " ".join(lines[2:]).strip()
 
-        text = force_two_lines(text, max_chars=28)
+        text = force_two_lines(text, max_chars=999)
 
         new_blocks.append(header + "\n" + text)
 
@@ -111,7 +111,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         "-y",
         "-i", video_path,
         "-vf",
-        "subtitles=subs.srt:charenc=UTF-8:force_style='Fontsize=13,Bold=1,Outline=3,Alignment=2,MarginV=120'",
+        "subtitles=subs.srt:charenc=UTF-8:force_style='Fontsize=13,Bold=1,Outline=3,Alignment=2,MarginV=120,WrapStyle=0'",
         "-c:a",
         "copy",
         output_path
