@@ -80,24 +80,18 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                     # 1. WYMUSZENIE DOKŁADNIE 2 LINII TEKSTU (Dzielenie zdania równo na pół)
                     words = text_content.split()
 
-                    if len(words) > 1:
-                        half = len(text_content) // 2
+                    max_chars_per_line = 22
 
-                        current_len = 0
-                        split_index = 0
+                    line1 = ""
+                    line2 = ""
 
-                        for i, word in enumerate(words):
-                            current_len += len(word) + 1
-                            if current_len >= half:
-                                split_index = i + 1
-                                break
+                    for word in words:
+                        if len(line1 + " " + word) <= max_chars_per_line:
+                            line1 += " " + word
+                        else:
+                            line2 += " " + word
 
-                        line1 = " ".join(words[:split_index])
-                        line2 = " ".join(words[split_index:])
-
-                        formatted_text = f"{line1}\n{line2}"
-                    else:
-                        formatted_text = text_content
+                    formatted_text = f"{line1.strip()}\n{line2.strip()}"
 
                     # 2. DODANIE SPACJI OCHRONNYCH DO KAŻDEJ Z LINII (zapobiega ścinaniu krawędzi liter)
                     safe_lines = [line.strip() for line in formatted_text.split("\n")]
