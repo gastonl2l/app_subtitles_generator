@@ -56,16 +56,17 @@ def force_two_lines(text, max_chars=42):
     for w in words:
         if len(line1 + " " + w) <= max_chars:
             line1 += " " + w
-        else:
+        elif len(line2 + " " + w) <= max_chars:
             line2 += " " + w
+        else:
+            break  # 🔥 ucinamy resztę żeby NIE było 3–5 linii
 
     line1 = line1.strip()
     line2 = line2.strip()
 
     if line2:
         return line1 + "\n" + line2
-    else:
-        return line1
+    return line1
 
 # --- 3. FUNKCJE PRZETWARZANIA WIDEO I AUDIO ---
 def transcribe_audio(audio_path):
@@ -108,7 +109,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         "ffmpeg",
         "-y",
         "-i", video_path,
-        "-vf", "subtitles=subs.srt:force_style='Fontsize=22,Outline=2,Alignment=2'",
+        "-vf", "subtitles=subs.srt:force_style='Fontsize=22,Outline=2,Alignment=2,WrapStyle=0'",
         "-c:a", "copy",
         output_path
     ]
