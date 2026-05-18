@@ -91,7 +91,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
                 text=text,
                 font_size=38,
                 color="white",
-                font="Arial-Bold",
+                font="arial-bold.ttf",
                 stroke_color="black",
                 stroke_width=3,
                 method="caption",
