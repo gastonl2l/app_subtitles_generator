@@ -148,15 +148,15 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     # SHORTS
     if ratio < 0.8:
         subtitle_style = (
-            "Fontsize=13,"
-            "Bold=1,"
-            "BorderStyle=1,"
-            "Shadow=1,"
-            "BackColour=&H80000000,"
-            "Alignment=2,"
-            "MarginV=40,"
-            "WrapStyle=0"
-        )
+    "Fontsize=13\\,"
+    "Bold=1\\,"
+    "BorderStyle=1\\,"
+    "Shadow=1\\,"
+    "BackColour=&H80000000\\,"
+    "Alignment=2\\,"
+    "MarginV=40\\,"
+    "WrapStyle=0"
+)
         max_chars = 28
     
     # NORMAL VIDEO
@@ -221,16 +221,17 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     with open(srt_path, "r", encoding="utf-8") as f:
         st.text(f.read()[:500])
 
-    
+    ffmpeg -version
     
 
     command = [
         "ffmpeg",
         "-y",
         "-i", video_path,
-        "-vf", f"subtitles={srt_path}",
-        "-c:v", "libx264",
-        "-c:a", "copy",
+        "-vf",
+        f"subtitles='{srt_path}':charenc=UTF-8:force_style='{subtitle_style}'",
+        "-c:a",
+        "copy",
         output_path
     ]
     
