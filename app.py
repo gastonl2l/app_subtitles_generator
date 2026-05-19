@@ -204,18 +204,17 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(final_srt)
 
-    # Bezpieczne formatowanie ścieżki dla systemów Windows/Linux
-    safe_srt_path = srt_path.replace("\\", "/").replace(":", "\\:")
+    # Na Linuxie (Debian) nie uciekamy dwukropków, dbamy jedynie o właściwe ułożenie filtrów
+    safe_srt_path = srt_path.replace("\\", "/")
     
-    # Budujemy filtr dbając o potrójne ucieczki (backslash przed apostrofami w stylach)
-    # W niektórych wersjach FFMPEG wymagane jest zduplikowanie cudzysłowów dla force_style
-    vf_filter = f"subtitles={safe_srt_path}:charenc=UTF-8:force_style={subtitle_style}"
+    # Konstruujemy poprawny filtr. Zwróć uwagę, że style MUSZĄ być w apostrofach: 'style'
+    vf_filter = f"subtitles={safe_srt_path}:charenc=UTF-8:force_style='{subtitle_style}'"
 
     command = [
         "ffmpeg",
         "-y",
         "-i", video_path,
-        "-vf", vf_filter,
+        "-vf", vf_filter,  # Python sam zadba o bezpieczne przekazanie tego do powłoki Linuxa
         "-c:a", "copy",
         output_path
     ]
