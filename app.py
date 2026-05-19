@@ -66,26 +66,27 @@ def get_video_ratio(video_path):
 
 # def 2 line
 def force_two_lines(text, max_chars=42):
+
     words = text.split()
 
-    line1 = ""
-    line2 = ""
+    lines = []
+    current_line = ""
 
     for w in words:
-        if len(line1 + " " + w) <= max_chars:
-            line1 += " " + w
-        elif len(line2 + " " + w) <= max_chars:
-            line2 += " " + w
+
+        test_line = current_line + " " + w
+
+        if len(test_line.strip()) <= max_chars:
+            current_line = test_line
+
         else:
-            break
+            lines.append(current_line.strip())
+            current_line = w
 
-    line1 = line1.strip()
-    line2 = line2.strip()
+    if current_line:
+        lines.append(current_line.strip())
 
-    if line2:
-        return line1 + "\n" + line2
-
-    return line1
+    return "\n".join(lines[:2])
 
 # --- 3. FUNKCJE PRZETWARZANIA WIDEO I AUDIO ---
 def transcribe_audio(audio_path):
