@@ -228,9 +228,10 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         "ffmpeg",
         "-y",
         "-i", video_path,
-        "-vf", f"subtitles={srt_path}",
-        "-c:v", "libx264",
-        "-c:a", "copy",
+        "-vf",
+        f"subtitles={srt_path}:charenc=UTF-8:force_style='{subtitle_style}'",
+        "-c:a",
+        "copy",
         output_path
     ]
     
