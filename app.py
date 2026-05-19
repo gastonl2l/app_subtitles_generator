@@ -86,7 +86,7 @@ def force_two_lines(text, max_chars=42):
     if current_line:
         lines.append(current_line.strip())
 
-    return "\n".join(lines[:2])
+    return "\n".join(lines)
 
 # --- 3. FUNKCJE PRZETWARZANIA WIDEO I AUDIO ---
 def transcribe_audio(audio_path):
