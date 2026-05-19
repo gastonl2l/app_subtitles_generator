@@ -6,7 +6,7 @@ from openai import OpenAI
 import shutil
 import os
 import re
-import subprocess
+
 
 
 
@@ -216,14 +216,26 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         f.write(final_srt)
 
     # Na Linuxie (Debian) nie uciekamy dwukropków, dbamy jedynie o właściwe ułożenie filtrów
-    safe_srt_path = srt_path.replace("\\", "/")
-    
-    # Konstruujemy poprawny filtr. Zwróć uwagę, że style MUSZĄ być w apostrofach: 'style'
-    vf_filter = f"subtitles={safe_srt_path}:charenc=UTF-8:force_style='{subtitle_style}'"
-    command_str = f'ffmpeg -y -i "{video_path}" -vf "{vf_filter}" -c:a copy "{output_path}"'
+    safe_srt_path = srt_path.replace("\\", "/").replace(":", "\\:")
 
-    # Kluczowa zmiana: przekazujemy string oraz dodajemy shell=True
-    result = subprocess.run(command_str, capture_output=True, text=True, shell=True)
+    vf_filter = (
+        f"subtitles='{safe_srt_path}':"
+        f"charenc=UTF-8:"
+        f"force_style='{subtitle_style}'"
+    )
+
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i", video_path,
+        "-vf", vf_filter,
+        "-c:a", "copy",
+        output_path
+    ]
+    #debug
+    st.code(vf_filter)
+    st.text(result.stderr)
+    result = subprocess.run(command, capture_output=True, text=True)
     
     if result.returncode != 0:
         raise Exception(f"FFMPEG Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
