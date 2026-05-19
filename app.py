@@ -221,20 +221,18 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     with open(srt_path, "r", encoding="utf-8") as f:
         st.text(f.read()[:500])
 
-    ffmpeg -version
+   
     
 
     command = [
         "ffmpeg",
         "-y",
         "-i", video_path,
-        "-vf",
-        f"subtitles='{srt_path}':charenc=UTF-8:force_style='{subtitle_style}'",
-        "-c:a",
-        "copy",
+        "-vf", f"subtitles={srt_path}:charenc=UTF-8",
+        "-c:a", "copy",
         output_path
     ]
-    
+
     subprocess.run(command, check=True)
 
 
