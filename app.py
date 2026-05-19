@@ -143,7 +143,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     width, height = get_video_ratio(video_path)
     ratio = width / height
 
-    srt_path = os.path.join(tempfile.gettempdir(), "subs.srt")
+    srt_path = "subs.srt"
 
     # SHORTS
     if ratio < 0.8:
@@ -212,7 +212,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
 
     final_srt = "\n\n".join(new_blocks)
 
-    with open(srt_path, "w", encoding="utf-8") as f:
+    with open(srt_path, "w", encoding="utf-8-sig") as f:
         f.write(final_srt)
 
     st.write("SRT PATH:", srt_path)
@@ -229,12 +229,12 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         "-y",
         "-i", video_path,
         "-vf",
-        f"subtitles='{srt_path}':charenc=UTF-8",
+        f"subtitles={srt_path}:charenc=UTF-8:force_style='{subtitle_style}'",
         "-c:a",
         "copy",
         output_path
     ]
-
+    
     subprocess.run(command, check=True)
 
 
