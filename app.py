@@ -131,13 +131,13 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     else:
 
         subtitle_style = (
-            "Fontsize=28,"
+            "Fontsize=20,"
             "Bold=1,"
             "BorderStyle=1,"
             "Shadow=1.5,"
             "BackColour=&H80000000,"
             "Alignment=2,"
-            "MarginV=90,"
+            "MarginV=40,"
             "WrapStyle=0"
         )
 
