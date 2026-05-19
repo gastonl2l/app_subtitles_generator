@@ -219,29 +219,29 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     safe_srt_path = srt_path.replace("\\", "/").replace(":", "\\:")
 
     vf_filter = (
-        f"subtitles={safe_srt_path}:"
+        f"subtitles='{safe_srt_path}':"
         f"charenc=UTF-8:"
-        f"force_style={subtitle_style}"
+        f"force_style='{subtitle_style}'"
     )
 
     command = [
-        "ffmpeg",
-        "-loglevel", "debug",
-        "-y",
-        "-i", video_path,
-        "-vf", vf_filter,
-        "-c:a", "copy",
-        output_path
-    ]
+    "ffmpeg",
+    "-y",
+    "-i", video_path,
+    "-vf", vf_filter,
+    "-c:a", "copy",
+    output_path
+]
 
     result = subprocess.run(command, capture_output=True, text=True)
-    #debug
+
     st.code(vf_filter)
     st.text(result.stderr)
-    
-    
+
     if result.returncode != 0:
-        raise Exception(f"FFMPEG Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
+        raise Exception(
+            f"FFMPEG Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
     
 
 
