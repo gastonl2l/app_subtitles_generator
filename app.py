@@ -45,41 +45,6 @@ def srt_time_to_seconds(t):
     h, m, s = t.split(":")
     return int(h) * 3600 + int(m) * 60 + float(s)
 
-
-# def start speech
-def detect_speech_start(audio_path):
-    command = [
-        "ffmpeg",
-        "-i", audio_path,
-        "-af", "silencedetect=noise=-30dB:d=0.5",
-        "-f", "null",
-        "-"
-    ]
-
-    result = subprocess.run(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-    logs = result.stderr
-
-    silence_ends = re.findall(r"silence_end: ([0-9.]+)", logs)
-
-    if silence_ends:
-        return float(silence_ends[0])  # pierwszy moment mowy
-
-    return 0.0
-
-# time syncro
-def shift_time(time_str, offset):
-    h, m, s = time_str.replace(",", ".").split(":")
-    total = int(h)*3600 + int(m)*60 + float(s)
-
-    total += offset
-
-    h = int(total // 3600)
-    m = int((total % 3600) // 60)
-    s = total % 60
-
-    return f"{h:02}:{m:02}:{s:06.3f}".replace(".", ",")
-
-
 # rozmiar wideo
 def get_video_ratio(video_path):
 
@@ -94,10 +59,8 @@ def get_video_ratio(video_path):
 
     result = subprocess.check_output(command).decode().strip()
 
-    if "x" not in result:
-        return 9, 16  # fallback dla Shorts (bez crasha)
-
     width, height = map(int, result.split("x"))
+
     return width, height
 
 
@@ -125,7 +88,7 @@ def force_two_lines(text, max_chars=42):
 
     return "\n".join(lines)
 
-# def
+# --- 3. FUNKCJE PRZETWARZANIA WIDEO I AUDIO ---
 def transcribe_audio(audio_path):
     openai_client = get_openai_client()
     with open(audio_path, "rb") as audio_file:
@@ -136,107 +99,89 @@ def transcribe_audio(audio_path):
         )
     return transcript
 
-# --- 3. FUNKCJE PRZETWARZANIA WIDEO I AUDIO ---
-def add_subtitles_to_video(video_path, srt_content, output_path):
-    offset = st.session_state.get("speech_offset", 0.0)
 
-    width, height = get_video_ratio(video_path)
-    ratio = width / height
+def add_subtitles_to_video(video_path, srt_content, output_path):
 
     srt_path = "subs.srt"
+    
+    #rozmiar wideo
+    width, height = get_video_ratio(video_path)
+
+    ratio = width / height
+
 
     # SHORTS
     if ratio < 0.8:
+
         subtitle_style = (
             "Fontsize=13,"
             "Bold=1,"
             "BorderStyle=1,"
-            "Shadow=1,"
+            "Shadow=1.5,"
             "BackColour=&H80000000,"
             "Alignment=2,"
             "MarginV=40,"
             "WrapStyle=0"
         )
+
         max_chars = 28
+
     
     # NORMAL VIDEO
     else:
+
         subtitle_style = (
             "Fontsize=20,"
             "Bold=1,"
             "BorderStyle=1,"
-            "Shadow=1,"
+            "Shadow=1.5,"
             "BackColour=&H80000000,"
             "Alignment=2,"
             "MarginV=40,"
             "WrapStyle=0"
         )
+
         max_chars = 60
+
+
+  
 
     blocks = srt_content.strip().split("\n\n")
     new_blocks = []
 
-    # Licznik bloków – poprawny format SRT wymaga unikalnego numeru nad czasem
-    for block_idx, block in enumerate(blocks, start=1):
-        lines = [l.strip() for l in block.split("\n") if l.strip()]
-        if len(lines) < 2:
+    for block in blocks:
+        lines = block.split("\n")
+
+        if len(lines) < 3:
             continue
 
-        # Szukamy linii, która faktycznie zawiera separator czasu " --> "
-        time_line_idx = -1
-        for idx, line in enumerate(lines):
-            if " --> " in line:
-                time_line_idx = idx
-                break
+        header = "\n".join(lines[:2])
+        text = " ".join(lines[2:]).strip()
 
-        if time_line_idx == -1:
-            continue
-
-        try:
-            start, end = lines[time_line_idx].split(" --> ")
-        except ValueError:
-            continue
-
-        start = shift_time(start, offset)
-        end = shift_time(end, offset)
-
-        header = f"{start} --> {end}"
-        
-        # Wszystkie linie poniżej znacznika czasu to tekst napisów
-        text_lines = lines[time_line_idx + 1:]
-        text = " ".join(text_lines).strip()
         text = force_two_lines(text, max_chars=max_chars)
 
-        # Składamy poprawny blok SRT: Indeks, Czas, Tekst
-        new_blocks.append(f"{block_idx}\n{header}\n{text}")
+        new_blocks.append(header + "\n" + text)
 
     final_srt = "\n\n".join(new_blocks)
 
-    with open(srt_path, "w", encoding="utf-8-sig") as f:
+    with open(srt_path, "w", encoding="utf-8") as f:
         f.write(final_srt)
 
-    st.write("SRT PATH:", srt_path)
-    st.write("EXISTS:", os.path.exists(srt_path))
 
-    with open(srt_path, "r", encoding="utf-8") as f:
-        st.text(f.read()[:500])
-
-    
-    
 
     command = [
         "ffmpeg",
         "-y",
         "-i", video_path,
         "-vf",
-        f"subtitles={srt_path}:charenc=UTF-8:force_style='{subtitle_style}'",
+        f"subtitles=subs.srt:charenc=UTF-8:force_style='{subtitle_style}'",
+        #"subtitles=subs.srt:charenc=UTF-8:force_style='Fontsize=13,Bold=1,BorderStyle=1,Shadow=1.5,BackColour=&H80000000,Alignment=2,MarginV=40,WrapStyle=0'",
         "-c:a",
         "copy",
         output_path
-    ]
-    
-    subprocess.run(command, check=True)
+]
 
+    subprocess.run(command, check=True)
 
 
 
@@ -302,13 +247,10 @@ if uploaded_file is not None:
             time.sleep(0.05)
             progress_bar.progress(percent + 1)
         process.wait()
-
         st.session_state["audio_ready"] = True
         st.toast("Audio extracted!")
 
-        st.session_state["speech_offset"] = detect_speech_start(audio_path)
-
-
+    st.audio(audio_path)
 
     if st.button("Generuj napisy"):
         with st.spinner("Transcribing audio..."):
@@ -355,3 +297,6 @@ if uploaded_file is not None:
                     file_name="video_with_subtitles.mp4",
                     mime="video/mp4"
                 )
+
+
+        
