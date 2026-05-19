@@ -215,6 +215,12 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(final_srt)
 
+    st.write("SRT PATH:", srt_path)
+    st.write("EXISTS:", os.path.exists(srt_path))
+
+    with open(srt_path, "r", encoding="utf-8") as f:
+        st.text(f.read()[:500])
+
     
     
 
