@@ -45,6 +45,41 @@ def srt_time_to_seconds(t):
     h, m, s = t.split(":")
     return int(h) * 3600 + int(m) * 60 + float(s)
 
+
+# def start speech
+def detect_speech_start(audio_path):
+    command = [
+        "ffmpeg",
+        "-i", audio_path,
+        "-af", "silencedetect=noise=-30dB:d=0.5",
+        "-f", "null",
+        "-"
+    ]
+
+    result = subprocess.run(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    logs = result.stderr
+
+    silence_ends = re.findall(r"silence_end: ([0-9.]+)", logs)
+
+    if silence_ends:
+        return float(silence_ends[0])  # pierwszy moment mowy
+
+    return 0.0
+
+# time syncro
+def shift_time(time_str, offset):
+    h, m, s = time_str.replace(",", ".").split(":")
+    total = int(h)*3600 + int(m)*60 + float(s)
+
+    total += offset
+
+    h = int(total // 3600)
+    m = int((total % 3600) // 60)
+    s = total % 60
+
+    return f"{h:02}:{m:02}:{s:06.3f}".replace(".", ",")
+
+
 # rozmiar wideo
 def get_video_ratio(video_path):
 
@@ -101,6 +136,7 @@ def transcribe_audio(audio_path):
 
 
 def add_subtitles_to_video(video_path, srt_content, output_path):
+    offset = st.session_state.get("speech_offset", 0.0)
 
     srt_path = "subs.srt"
     
@@ -149,13 +185,25 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     new_blocks = []
 
+
     for block in blocks:
         lines = block.split("\n")
 
         if len(lines) < 3:
             continue
 
-        header = "\n".join(lines[:2])
+        try:
+
+            start, end = lines[0].split(" --> ")
+        except ValueError:
+                continue
+
+        
+
+        start = shift_time(start, offset)
+        end = shift_time(end, offset)
+
+        header = f"{start} --> {end}"
         text = " ".join(lines[2:]).strip()
 
         text = force_two_lines(text, max_chars=max_chars)
@@ -247,10 +295,13 @@ if uploaded_file is not None:
             time.sleep(0.05)
             progress_bar.progress(percent + 1)
         process.wait()
+
         st.session_state["audio_ready"] = True
         st.toast("Audio extracted!")
 
-    st.audio(audio_path)
+        st.session_state["speech_offset"] = detect_speech_start(audio_path)
+
+
 
     if st.button("Generuj napisy"):
         with st.spinner("Transcribing audio..."):
@@ -297,6 +348,3 @@ if uploaded_file is not None:
                     file_name="video_with_subtitles.mp4",
                     mime="video/mp4"
                 )
-
-
-        
