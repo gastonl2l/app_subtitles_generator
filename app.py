@@ -223,7 +223,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         "-y",
         "-i", video_path,
         "-vf",
-        f"subtitles=subs.srt:charenc=UTF-8",
+        f"subtitles='{srt_path}':charenc=UTF-8",
         "-c:a",
         "copy",
         output_path
