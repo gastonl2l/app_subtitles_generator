@@ -45,6 +45,24 @@ def srt_time_to_seconds(t):
     h, m, s = t.split(":")
     return int(h) * 3600 + int(m) * 60 + float(s)
 
+# rozmiar wideo
+def get_video_ratio(video_path):
+
+    command = [
+        "ffprobe",
+        "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width,height",
+        "-of", "csv=s=x:p=0",
+        video_path
+    ]
+
+    result = subprocess.check_output(command).decode().strip()
+
+    width, height = map(int, result.split("x"))
+
+    return width, height
+
 
 # def 2 line
 def force_two_lines(text, max_chars=42):
@@ -84,6 +102,48 @@ def transcribe_audio(audio_path):
 def add_subtitles_to_video(video_path, srt_content, output_path):
 
     srt_path = "subs.srt"
+    
+    #rozmiar wideo
+    width, height = get_video_ratio(video_path)
+
+    ratio = width / height
+
+
+    # SHORTS
+    if ratio < 0.8:
+
+        subtitle_style = (
+            "Fontsize=13,"
+            "Bold=1,"
+            "BorderStyle=1,"
+            "Shadow=1.5,"
+            "BackColour=&H80000000,"
+            "Alignment=2,"
+            "MarginV=40,"
+            "WrapStyle=0"
+        )
+
+        max_chars = 28
+
+    
+    # NORMAL VIDEO
+    else:
+
+        subtitle_style = (
+            "Fontsize=28,"
+            "Bold=1,"
+            "BorderStyle=1,"
+            "Shadow=1.5,"
+            "BackColour=&H80000000,"
+            "Alignment=2,"
+            "MarginV=90,"
+            "WrapStyle=0"
+        )
+
+        max_chars = 60
+
+
+  
 
     blocks = srt_content.strip().split("\n\n")
     new_blocks = []
@@ -97,7 +157,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         header = "\n".join(lines[:2])
         text = " ".join(lines[2:]).strip()
 
-        text = force_two_lines(text, max_chars=999)
+        text = force_two_lines(text, max_chars=max_chars)
 
         new_blocks.append(header + "\n" + text)
 
@@ -106,12 +166,15 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(final_srt)
 
+
+
     command = [
         "ffmpeg",
         "-y",
         "-i", video_path,
         "-vf",
-        "subtitles=subs.srt:charenc=UTF-8:force_style='Fontsize=13,Bold=1,BorderStyle=1,Shadow=1.5,BackColour=&H80000000,Alignment=2,MarginV=40,WrapStyle=0'",
+        f"subtitles=subs.srt:charenc=UTF-8:force_style='{subtitle_style}'",
+        #"subtitles=subs.srt:charenc=UTF-8:force_style='Fontsize=13,Bold=1,BorderStyle=1,Shadow=1.5,BackColour=&H80000000,Alignment=2,MarginV=40,WrapStyle=0'",
         "-c:a",
         "copy",
         output_path
