@@ -219,9 +219,9 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     safe_srt_path = srt_path.replace("\\", "/").replace(":", "\\:")
 
     vf_filter = (
-        f"subtitles='{safe_srt_path}':"
+        f"subtitles={safe_srt_path}:"
         f"charenc=UTF-8:"
-        f"force_style='{subtitle_style}'"
+        f"force_style={subtitle_style}"
     )
 
     command = [
