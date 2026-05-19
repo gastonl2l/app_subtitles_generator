@@ -126,17 +126,6 @@ def force_two_lines(text, max_chars=42):
     return "\n".join(lines)
 
 # --- 3. FUNKCJE PRZETWARZANIA WIDEO I AUDIO ---
-def transcribe_audio(audio_path):
-    openai_client = get_openai_client()
-    with open(audio_path, "rb") as audio_file:
-        transcript = openai_client.audio.transcriptions.create(
-            file=audio_file,
-            model=AUDIO_TRANSCRIBE_MODEL,
-            response_format="srt",
-        )
-    return transcript
-
-
 def add_subtitles_to_video(video_path, srt_content, output_path):
     offset = st.session_state.get("speech_offset", 0.0)
 
@@ -145,89 +134,82 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
 
     srt_path = os.path.join(tempfile.gettempdir(), "subs.srt")
 
-
     # SHORTS
     if ratio < 0.8:
-
-
         subtitle_style = (
             "Fontsize=13,"
             "Bold=1,"
             "BorderStyle=1,"
-            "Shadow=1.5,"
+            "Shadow=1,"
             "BackColour=&H80000000,"
             "Alignment=2,"
             "MarginV=40,"
             "WrapStyle=0"
         )
-
         max_chars = 28
-
     
     # NORMAL VIDEO
     else:
-
         subtitle_style = (
             "Fontsize=20,"
             "Bold=1,"
             "BorderStyle=1,"
-            "Shadow=1.5,"
+            "Shadow=1,"
             "BackColour=&H80000000,"
             "Alignment=2,"
             "MarginV=40,"
             "WrapStyle=0"
         )
-
         max_chars = 60
-
-
-
-    
-
-
-  
 
     blocks = srt_content.strip().split("\n\n")
     new_blocks = []
 
+    # Licznik bloków – poprawny format SRT wymaga unikalnego numeru nad czasem
+    for block_idx, block in enumerate(blocks, start=1):
+        lines = [l.strip() for l in block.split("\n") if l.strip()]
+        if len(lines) < 2:
+            continue
 
-    for block in blocks:
-        lines = block.split("\n")
+        # Szukamy linii, która faktycznie zawiera separator czasu " --> "
+        time_line_idx = -1
+        for idx, line in enumerate(lines):
+            if " --> " in line:
+                time_line_idx = idx
+                break
 
-        if len(lines) < 3:
+        if time_line_idx == -1:
             continue
 
         try:
-
-            start, end = lines[0].split(" --> ")
+            start, end = lines[time_line_idx].split(" --> ")
         except ValueError:
-                continue
-
-        
+            continue
 
         start = shift_time(start, offset)
         end = shift_time(end, offset)
 
         header = f"{start} --> {end}"
-        text = " ".join(lines[2:]).strip()
-
+        
+        # Wszystkie linie poniżej znacznika czasu to tekst napisów
+        text_lines = lines[time_line_idx + 1:]
+        text = " ".join(text_lines).strip()
         text = force_two_lines(text, max_chars=max_chars)
 
-        new_blocks.append(header + "\n" + text)
+        # Składamy poprawny blok SRT: Indeks, Czas, Tekst
+        new_blocks.append(f"{block_idx}\n{header}\n{text}")
 
     final_srt = "\n\n".join(new_blocks)
 
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(final_srt)
 
-   
-
-
-
-    vf_filter = (
-        f"subtitles={srt_path}:charenc=UTF-8:"
-        f"force_style='{subtitle_style}'"
-    )
+    # Bezpieczne formatowanie ścieżki dla systemów Windows/Linux
+    safe_srt_path = srt_path.replace("\\", "/").replace(":", "\\:")
+    
+    # Budujemy filtr dbając o potrójne ucieczki (backslash przed apostrofami w stylach)
+    # W niektórych wersjach FFMPEG wymagane jest zduplikowanie cudzysłowów dla force_style
+    vf_filter = f"subtitles={safe_srt_path}:charenc=UTF-8:force_style={subtitle_style}"
 
     command = [
         "ffmpeg",
@@ -238,7 +220,10 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         output_path
     ]
 
-    subprocess.run(command, check=True)
+    result = subprocess.run(command, capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        raise Exception(f"FFMPEG Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
 
 
 
