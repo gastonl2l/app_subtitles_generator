@@ -125,6 +125,17 @@ def force_two_lines(text, max_chars=42):
 
     return "\n".join(lines)
 
+# def
+def transcribe_audio(audio_path):
+    openai_client = get_openai_client()
+    with open(audio_path, "rb") as audio_file:
+        transcript = openai_client.audio.transcriptions.create(
+            file=audio_file,
+            model=AUDIO_TRANSCRIBE_MODEL,
+            response_format="srt",
+        )
+    return transcript
+
 # --- 3. FUNKCJE PRZETWARZANIA WIDEO I AUDIO ---
 def add_subtitles_to_video(video_path, srt_content, output_path):
     offset = st.session_state.get("speech_offset", 0.0)
@@ -209,17 +220,10 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     
     # Konstruujemy poprawny filtr. Zwróć uwagę, że style MUSZĄ być w apostrofach: 'style'
     vf_filter = f"subtitles={safe_srt_path}:charenc=UTF-8:force_style='{subtitle_style}'"
+    command_str = f'ffmpeg -y -i "{video_path}" -vf "{vf_filter}" -c:a copy "{output_path}"'
 
-    command = [
-        "ffmpeg",
-        "-y",
-        "-i", video_path,
-        "-vf", vf_filter,  # Python sam zadba o bezpieczne przekazanie tego do powłoki Linuxa
-        "-c:a", "copy",
-        output_path
-    ]
-
-    result = subprocess.run(command, capture_output=True, text=True)
+    # Kluczowa zmiana: przekazujemy string oraz dodajemy shell=True
+    result = subprocess.run(command_str, capture_output=True, text=True, shell=True)
     
     if result.returncode != 0:
         raise Exception(f"FFMPEG Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
