@@ -138,7 +138,7 @@ def transcribe_audio(audio_path):
 def add_subtitles_to_video(video_path, srt_content, output_path):
     offset = st.session_state.get("speech_offset", 0.0)
 
-    srt_path = "subs.srt"
+    srt_path = os.path.abspath("subs.srt")
     
     #rozmiar wideo
     width, height = get_video_ratio(video_path)
@@ -215,14 +215,19 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(final_srt)
 
+    srt_path = os.path.abspath("subs.srt").replace("\\", "/")
 
+    vf_filter = (
+        f"subtitles='{srt_path}':charenc=UTF-8:"
+        f"force_style='{subtitle_style}'"
+)
 
     command = [
         "ffmpeg",
         "-y",
         "-i", video_path,
         "-vf",
-        f"subtitles=subs.srt:charenc=UTF-8:force_style='{subtitle_style}'",
+        vf_filter,
         #"subtitles=subs.srt:charenc=UTF-8:force_style='Fontsize=13,Bold=1,BorderStyle=1,Shadow=1.5,BackColour=&H80000000,Alignment=2,MarginV=40,WrapStyle=0'",
         "-c:a",
         "copy",
