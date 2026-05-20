@@ -300,7 +300,7 @@ if uploaded_file is not None:
         process.wait()
         st.session_state["audio_ready"] = True
         st.session_state["speech_offset"] = detect_speech_start(audio_path)
-        st.write("OFFSET:", st.session_state["speech_offset"])
+        st.write("RAW OFFSET:", st.session_state.get("speech_offset"))
         st.toast("Audio extracted!")
 
     st.audio(audio_path)
