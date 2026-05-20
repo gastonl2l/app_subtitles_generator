@@ -188,8 +188,8 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         time_line = lines[1]
         start, end = time_line.split(" --> ")
 
-        start_sec = max(0, srt_to_seconds(start) + base_offset)
-        end_sec = max(0, srt_to_seconds(end) + base_offset)
+        start_sec = max(0, srt_to_seconds(start) - base_offset)
+        end_sec = max(0, srt_to_seconds(end) - base_offset)
 
         new_time = f"{seconds_to_srt(start_sec)} --> {seconds_to_srt(end_sec)}"
 
@@ -299,8 +299,7 @@ if uploaded_file is not None:
     if st.button("Generuj napisy"):
         with st.spinner("Transcribing audio..."):
             offset = st.session_state.get("speech_offset", 0.0)
-            shifted_audio = shift_audio(audio_path, offset)
-            st.session_state["note_audio_text"] = transcribe_audio(shifted_audio)
+            st.session_state["note_audio_text"] = transcribe_audio(audio_path)
         st.success("Napisy wygenerowane!")
 
     tab1, tab2 = st.tabs(["Napisy", "Wideo z napisami"])
