@@ -58,7 +58,7 @@ def detect_speech_start(audio_path):
     command = [
         "ffmpeg",
         "-i", audio_path,
-        "-af", "silencedetect=noise=-30dB:d=0.5",
+        "-af", "silencedetect=noise=-45dB:d=0.2",
         "-f", "null",
         "-"
     ]
