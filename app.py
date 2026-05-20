@@ -3,6 +3,7 @@ import tempfile
 from io import BytesIO
 import subprocess
 from openai import OpenAI
+import numpy as np
 import shutil
 import os
 import re
@@ -54,11 +55,11 @@ def seconds_to_srt(seconds):
     return f"{h:02}:{m:02}:{s:06.3f}".replace(".", ",")
 
 # wykrywanie początku mowy
-def detect_speech_start(video_path):
+def detect_speech_start(audio_path):
     command = [
         "ffmpeg",
-        "-i", video_path,
-        "-af", "silencedetect=noise=-60dB:d=0.1",
+        "-i", audio_path,
+        "-af", "astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level",
         "-f", "null",
         "-"
     ]
@@ -71,12 +72,12 @@ def detect_speech_start(video_path):
     )
 
     logs = result.stderr
-    
-    
-    silence_ends = re.findall(r"silence_end: (\d+\.?\d*)", logs)
 
-    if silence_ends:
-        return float(silence_ends[0])
+    # szukamy pierwszego sensownego poziomu dźwięku
+    matches = re.findall(r"pts_time:(\d+\.?\d*)", logs)
+
+    if matches:
+        return float(matches[0])
 
     return 0.0
 
