@@ -40,7 +40,20 @@ def get_openai_client():
 
 AUDIO_TRANSCRIBE_MODEL = "whisper-1"
 
+#def
+def shift_audio(audio_path, offset):
+    shifted = "shifted_audio.mp3"
 
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i", audio_path,
+        "-af", f"adelay={int(offset*1000)}|{int(offset*1000)}",
+        shifted
+    ]
+
+    subprocess.run(command, check=True)
+    return shifted
 
 #def konwersja czasu
 def srt_to_seconds(time_str):
@@ -59,7 +72,7 @@ def detect_speech_start(audio_path):
     command = [
         "ffmpeg",
         "-i", audio_path,
-        "-af", "silencedetect=noise=-45dB:d=0.2",
+        "-af", "astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level",
         "-f", "null",
         "-"
     ]
@@ -67,13 +80,23 @@ def detect_speech_start(audio_path):
     result = subprocess.run(command, stderr=subprocess.PIPE, text=True)
     logs = result.stderr
 
-    silence_ends = re.findall(r"silence_end: (\d+\.?\d*)", logs)
+    times = []
+    lines = logs.split("\n")
 
-    if silence_ends:
-        return float(silence_ends[0])
+    for line in lines:
+        if "pts_time" in line:
+            try:
+                t = float(re.search(r"pts_time:(\d+\.?\d*)", line).group(1))
+                rms = float(re.search(r"RMS_level=(-?\d+\.?\d*)", line).group(1))
 
-    # fallback: zawsze trochę przesuwamy (typowe intro)
-    return 1.5
+                # pierwsza realna mowa
+                if rms > -35:
+                    times.append(t)
+                    break
+            except:
+                continue
+
+    return times[0] if times else 0.0
 
 
 
@@ -308,7 +331,8 @@ if uploaded_file is not None:
 
     if st.button("Generuj napisy"):
         with st.spinner("Transcribing audio..."):
-            st.session_state["note_audio_text"] = transcribe_audio(audio_path)
+            shifted_audio = shift_audio(audio_path, st.session_state["speech_offset"])
+            st.session_state["note_audio_text"] = transcribe_audio(shifted_audio)
         st.success("Napisy wygenerowane!")
 
     tab1, tab2 = st.tabs(["Napisy", "Wideo z napisami"])
