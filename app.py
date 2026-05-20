@@ -7,7 +7,8 @@ import numpy as np
 import shutil
 import os
 import re
-
+from pydub import AudioSegment
+from pydub.silence import detect_nonsilent
 
 
 
@@ -69,34 +70,25 @@ def seconds_to_srt(seconds):
 
 # wykrywanie początku mowy
 def detect_speech_start(audio_path):
-    command = [
-        "ffmpeg",
-        "-i", audio_path,
-        "-af", "astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level",
-        "-f", "null",
-        "-"
-    ]
+    from pydub import AudioSegment
+    from pydub.silence import detect_nonsilent
 
-    result = subprocess.run(command, stderr=subprocess.PIPE, text=True)
-    logs = result.stderr
+    audio = AudioSegment.from_file(audio_path)
 
-    times = []
-    lines = logs.split("\n")
+    # lekkie ustawienia – możesz je później stroić
+    chunks = detect_nonsilent(
+        audio,
+        min_silence_len=300,          # ile ms ciszy uznajemy za "pauzę"
+        silence_thresh=audio.dBFS - 16 # próg ciszy (im większe - tym bardziej czułe)
+    )
 
-    for line in lines:
-        if "pts_time" in line:
-            try:
-                t = float(re.search(r"pts_time:(\d+\.?\d*)", line).group(1))
-                rms = float(re.search(r"RMS_level=(-?\d+\.?\d*)", line).group(1))
+    if not chunks:
+        return 0.0
 
-                # pierwsza realna mowa
-                if rms > -35:
-                    times.append(t)
-                    break
-            except:
-                continue
+    # pierwszy fragment mowy
+    start_ms = chunks[0][0]
 
-    return times[0] if times else 0.0
+    return start_ms / 1000.0
 
 
 
