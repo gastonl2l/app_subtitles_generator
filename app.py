@@ -39,23 +39,18 @@ def get_openai_client():
 
 AUDIO_TRANSCRIBE_MODEL = "whisper-1"
 
-# def 
-def srt_time_to_seconds(t):
-    t = t.replace(",", ".")
-    h, m, s = t.split(":")
-    return int(h) * 3600 + int(m) * 60 + float(s)
+
 
 #def konwersja czasu
-def srt_to_seconds(t):
-    t = t.replace(",", ".")
-    h, m, s = t.split(":")
-    return int(h)*3600 + int(m)*60 + float(s)
+def srt_to_seconds(time_str):
+    h, m, s = time_str.replace(",", ".").split(":")
+    return int(h) * 3600 + int(m) * 60 + float(s)
 
+def seconds_to_srt(seconds):
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = seconds % 60
 
-def seconds_to_srt(x):
-    h = int(x // 3600)
-    m = int((x % 3600) // 60)
-    s = x % 60
     return f"{h:02}:{m:02}:{s:06.3f}".replace(".", ",")
 
 # rozmiar wideo
@@ -186,7 +181,8 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
 
         new_blocks.append(header + "\n" + text)
 
-        final_srt = "\n\n".join(new_blocks)
+    final_srt = "\n\n".join(new_blocks)
+
 
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(final_srt)
