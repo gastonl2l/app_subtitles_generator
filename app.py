@@ -73,45 +73,19 @@ def detect_speech_start(audio_path):
     command = [
         "ffmpeg",
         "-i", audio_path,
-        "-af", "volumedetect",
+        "-af", "silencedetect=noise=-30dB:d=0.5",
         "-f", "null",
         "-"
     ]
 
-    result = subprocess.run(command, stderr=subprocess.PIPE, text=True)
+    result = subprocess.run(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
     logs = result.stderr
 
-    # fallback jeśli nic nie znajdzie
-    threshold = -30
+    # Szukamy momentu, w którym kończy się cisza (czyli zaczyna się mowa)
+    silence_ends = re.findall(r"silence_end: ([0-9.]+)", logs)
 
-    # wyciągamy RMS-ish info (min volume = noise floor)
-    match = re.search(r"mean_volume:\s(-?\d+\.?\d*) dB", logs)
-    if match:
-        noise_floor = float(match.group(1))
-        threshold = noise_floor + 10  # 10 dB ponad szum
-
-    # teraz właściwe skanowanie czasu
-    command2 = [
-        "ffmpeg",
-        "-i", audio_path,
-        "-af", f"astats=metadata=1,ametadata=print:key=lavfi.astats.Overall.RMS_level",
-        "-f", "null",
-        "-"
-    ]
-
-    result2 = subprocess.run(command2, stderr=subprocess.PIPE, text=True)
-    logs2 = result2.stderr
-
-    for line in logs2.split("\n"):
-        if "pts_time" in line:
-            try:
-                t = float(re.search(r"pts_time:(\d+\.?\d*)", line).group(1))
-                rms = float(re.search(r"RMS_level=(-?\d+\.?\d*)", line).group(1))
-
-                if rms > threshold:
-                    return t
-            except:
-                continue
+    if silence_ends:
+        return float(silence_ends[0])  # Zwróci np. 7.12
 
     return 0.0
 
@@ -205,8 +179,8 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         time_line = lines[1]
         start, end = time_line.split(" --> ")
 
-        start_sec = max(0, srt_to_seconds(start) - base_offset)
-        end_sec = max(0, srt_to_seconds(end) - base_offset)
+        start_sec = max(0, srt_to_seconds(start) + base_offset)
+        end_sec = max(0, srt_to_seconds(end) + base_offset)
 
         new_time = f"{seconds_to_srt(start_sec)} --> {seconds_to_srt(end_sec)}"
 
