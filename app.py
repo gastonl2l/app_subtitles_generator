@@ -45,6 +45,19 @@ def srt_time_to_seconds(t):
     h, m, s = t.split(":")
     return int(h) * 3600 + int(m) * 60 + float(s)
 
+#def konwersja czasu
+def srt_to_seconds(t):
+    t = t.replace(",", ".")
+    h, m, s = t.split(":")
+    return int(h)*3600 + int(m)*60 + float(s)
+
+
+def seconds_to_srt(x):
+    h = int(x // 3600)
+    m = int((x % 3600) // 60)
+    s = x % 60
+    return f"{h:02}:{m:02}:{s:06.3f}".replace(".", ",")
+
 # rozmiar wideo
 def get_video_ratio(video_path):
 
@@ -155,14 +168,25 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         if len(lines) < 3:
             continue
 
-        header = "\n".join(lines[:2])
+        time_line = lines[1]
+        start, end = time_line.split(" --> ")
+
+        base_offset = st.session_state.get("speech_offset", 0.0)
+
+        start_sec = srt_to_seconds(start) + base_offset
+        end_sec = srt_to_seconds(end) + base_offset
+
+        new_time = f"{seconds_to_srt(start_sec)} --> {seconds_to_srt(end_sec)}"
+
+        header = lines[0] + "\n" + new_time
+
         text = " ".join(lines[2:]).strip()
 
         text = force_two_lines(text, max_chars=max_chars)
 
         new_blocks.append(header + "\n" + text)
 
-    final_srt = "\n\n".join(new_blocks)
+        final_srt = "\n\n".join(new_blocks)
 
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(final_srt)
