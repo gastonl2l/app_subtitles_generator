@@ -158,83 +158,51 @@ def transcribe_audio(audio_path):
 def add_subtitles_to_video(video_path, srt_content, output_path):
 
     srt_path = "subs.srt"
-    
-    #rozmiar wideo
-    width, height = get_video_ratio(video_path)
 
+    width, height = get_video_ratio(video_path)
     ratio = width / height
 
-
-    # SHORTS
     if ratio < 0.8:
-
         subtitle_style = (
-            "Fontsize=13,"
-            "Bold=1,"
-            "BorderStyle=1,"
-            "Shadow=1.5,"
-            "BackColour=&H80000000,"
-            "Alignment=2,"
-            "MarginV=40,"
-            "WrapStyle=0"
+            "Fontsize=13,Bold=1,BorderStyle=1,Shadow=1.5,"
+            "BackColour=&H80000000,Alignment=2,MarginV=40,WrapStyle=0"
         )
-
         max_chars = 28
-
-    
-    # NORMAL VIDEO
     else:
-
         subtitle_style = (
-            "Fontsize=20,"
-            "Bold=1,"
-            "BorderStyle=1,"
-            "Shadow=1.5,"
-            "BackColour=&H80000000,"
-            "Alignment=2,"
-            "MarginV=40,"
-            "WrapStyle=0"
+            "Fontsize=20,Bold=1,BorderStyle=1,Shadow=1.5,"
+            "BackColour=&H80000000,Alignment=2,MarginV=40,WrapStyle=0"
         )
-
         max_chars = 60
-
-
-  
 
     blocks = srt_content.strip().split("\n\n")
     new_blocks = []
 
-    for block in blocks:
-        lines = block.split("\n")
+    base_offset = st.session_state.get("speech_offset", 0.0)
 
+    for i, block in enumerate(blocks, start=1):
+        lines = block.split("\n")
         if len(lines) < 3:
             continue
 
         time_line = lines[1]
         start, end = time_line.split(" --> ")
 
-        base_offset = st.session_state.get("speech_offset", 0.0)
-
-        start_sec = srt_to_seconds(start) + base_offset
-        end_sec = srt_to_seconds(end) + base_offset
+        start_sec = max(0, srt_to_seconds(start) + base_offset)
+        end_sec = max(0, srt_to_seconds(end) + base_offset)
 
         new_time = f"{seconds_to_srt(start_sec)} --> {seconds_to_srt(end_sec)}"
 
-        header = lines[0] + "\n" + new_time
-
         text = " ".join(lines[2:]).strip()
-
         text = force_two_lines(text, max_chars=max_chars)
 
-        new_blocks.append(header + "\n" + text)
+        new_block = f"{i}\n{new_time}\n{text}"
+        new_blocks.append(new_block)
 
     final_srt = "\n\n".join(new_blocks)
 
-
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(final_srt)
-
-
 
     command = [
         "ffmpeg",
@@ -242,11 +210,10 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         "-i", video_path,
         "-vf",
         f"subtitles=subs.srt:charenc=UTF-8:force_style='{subtitle_style}'",
-        #"subtitles=subs.srt:charenc=UTF-8:force_style='Fontsize=13,Bold=1,BorderStyle=1,Shadow=1.5,BackColour=&H80000000,Alignment=2,MarginV=40,WrapStyle=0'",
         "-c:a",
         "copy",
         output_path
-]
+    ]
 
     subprocess.run(command, check=True)
 
@@ -331,7 +298,8 @@ if uploaded_file is not None:
 
     if st.button("Generuj napisy"):
         with st.spinner("Transcribing audio..."):
-            shifted_audio = shift_audio(audio_path, st.session_state["speech_offset"])
+            offset = st.session_state.get("speech_offset", 0.0)
+            shifted_audio = shift_audio(audio_path, offset)
             st.session_state["note_audio_text"] = transcribe_audio(shifted_audio)
         st.success("Napisy wygenerowane!")
 
