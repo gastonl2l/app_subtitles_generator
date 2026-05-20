@@ -71,6 +71,9 @@ def detect_speech_start(audio_path):
     )
 
     logs = result.stderr
+    
+    #debug
+    st.text(logs[:3000])
 
     silence_ends = re.findall(r"silence_end: ([0-9.]+)", logs)
 
