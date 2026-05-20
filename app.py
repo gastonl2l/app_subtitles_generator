@@ -59,25 +59,21 @@ def detect_speech_start(audio_path):
     command = [
         "ffmpeg",
         "-i", audio_path,
-        "-af", "astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level",
+        "-af", "silencedetect=noise=-50dB:d=0.1",
         "-f", "null",
         "-"
     ]
 
-    result = subprocess.run(
-        command,
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        text=True
-    )
-
+    result = subprocess.run(command, stderr=subprocess.PIPE, text=True)
     logs = result.stderr
 
-    # szukamy pierwszego sensownego poziomu dźwięku
-    matches = re.findall(r"pts_time:(\d+\.?\d*)", logs)
+    # debug (ważne!)
+    print(logs[:2000])
 
-    if matches:
-        return float(matches[0])
+    silence_ends = re.findall(r"silence_end: (\d+\.?\d*)", logs)
+
+    if silence_ends:
+        return float(silence_ends[0])
 
     return 0.0
 
