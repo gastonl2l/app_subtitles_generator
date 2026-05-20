@@ -54,11 +54,11 @@ def seconds_to_srt(seconds):
     return f"{h:02}:{m:02}:{s:06.3f}".replace(".", ",")
 
 # wykrywanie początku mowy
-def detect_speech_start(audio_path):
+def detect_speech_start(video_path):
     command = [
         "ffmpeg",
-        "-i", audio_path,
-        "-af", "silencedetect=noise=-45dB:d=0.2",
+        "-i", video_path,
+        "-af", "silencedetect=noise=-60dB:d=0.1",
         "-f", "null",
         "-"
     ]
@@ -72,10 +72,8 @@ def detect_speech_start(audio_path):
 
     logs = result.stderr
     
-    #debug
-    st.text(logs[:3000])
-
-    silence_ends = re.findall(r"silence_end: ([0-9.]+)", logs)
+    
+    silence_ends = re.findall(r"silence_end: (\d+\.?\d*)", logs)
 
     if silence_ends:
         return float(silence_ends[0])
@@ -299,8 +297,13 @@ if uploaded_file is not None:
             progress_bar.progress(percent + 1)
         process.wait()
         st.session_state["audio_ready"] = True
-        st.session_state["speech_offset"] = detect_speech_start(audio_path)
-        st.write("RAW OFFSET:", st.session_state.get("speech_offset"))
+        offset = detect_speech_start(audio_path)
+
+        if offset is None:
+            offset = 0.0
+
+        st.session_state["speech_offset"] = offset
+        
         st.toast("Audio extracted!")
 
     st.audio(audio_path)
