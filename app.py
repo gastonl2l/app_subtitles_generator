@@ -59,7 +59,7 @@ def detect_speech_start(audio_path):
     command = [
         "ffmpeg",
         "-i", audio_path,
-        "-af", "silencedetect=noise=-50dB:d=0.1",
+        "-af", "silencedetect=noise=-45dB:d=0.2",
         "-f", "null",
         "-"
     ]
@@ -67,15 +67,13 @@ def detect_speech_start(audio_path):
     result = subprocess.run(command, stderr=subprocess.PIPE, text=True)
     logs = result.stderr
 
-    # debug (ważne!)
-    print(logs[:2000])
-
     silence_ends = re.findall(r"silence_end: (\d+\.?\d*)", logs)
 
     if silence_ends:
         return float(silence_ends[0])
 
-    return 0.0
+    # fallback: zawsze trochę przesuwamy (typowe intro)
+    return 1.5
 
 
 
