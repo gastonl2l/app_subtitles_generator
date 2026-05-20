@@ -304,6 +304,9 @@ if uploaded_file is not None:
         st.toast("Audio extracted!")
 
     st.audio(audio_path)
+    #debug
+    st.write("DEBUG AUDIO READY:", st.session_state.get("audio_ready"))#
+    st.write("DEBUG OFFSET:", st.session_state.get("speech_offset"))
 
     if st.button("Generuj napisy"):
         with st.spinner("Transcribing audio..."):
