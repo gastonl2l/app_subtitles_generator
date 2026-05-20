@@ -53,6 +53,34 @@ def seconds_to_srt(seconds):
 
     return f"{h:02}:{m:02}:{s:06.3f}".replace(".", ",")
 
+# wykrywanie początku mowy
+def detect_speech_start(audio_path):
+    command = [
+        "ffmpeg",
+        "-i", audio_path,
+        "-af", "silencedetect=noise=-30dB:d=0.5",
+        "-f", "null",
+        "-"
+    ]
+
+    result = subprocess.run(
+        command,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True
+    )
+
+    logs = result.stderr
+
+    silence_ends = re.findall(r"silence_end: ([0-9.]+)", logs)
+
+    if silence_ends:
+        return float(silence_ends[0])
+
+    return 0.0
+
+
+
 # rozmiar wideo
 def get_video_ratio(video_path):
 
@@ -268,6 +296,8 @@ if uploaded_file is not None:
             progress_bar.progress(percent + 1)
         process.wait()
         st.session_state["audio_ready"] = True
+        st.session_state["speech_offset"] = detect_speech_start(audio_path)
+        st.write("OFFSET:", st.session_state["speech_offset"])
         st.toast("Audio extracted!")
 
     st.audio(audio_path)
