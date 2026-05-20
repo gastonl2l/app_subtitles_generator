@@ -70,25 +70,50 @@ def seconds_to_srt(seconds):
 
 # wykrywanie początku mowy
 def detect_speech_start(audio_path):
-    from pydub import AudioSegment
-    from pydub.silence import detect_nonsilent
+    command = [
+        "ffmpeg",
+        "-i", audio_path,
+        "-af", "volumedetect",
+        "-f", "null",
+        "-"
+    ]
 
-    audio = AudioSegment.from_file(audio_path)
+    result = subprocess.run(command, stderr=subprocess.PIPE, text=True)
+    logs = result.stderr
 
-    # lekkie ustawienia – możesz je później stroić
-    chunks = detect_nonsilent(
-        audio,
-        min_silence_len=300,          # ile ms ciszy uznajemy za "pauzę"
-        silence_thresh=audio.dBFS - 16 # próg ciszy (im większe - tym bardziej czułe)
-    )
+    # fallback jeśli nic nie znajdzie
+    threshold = -30
 
-    if not chunks:
-        return 0.0
+    # wyciągamy RMS-ish info (min volume = noise floor)
+    match = re.search(r"mean_volume:\s(-?\d+\.?\d*) dB", logs)
+    if match:
+        noise_floor = float(match.group(1))
+        threshold = noise_floor + 10  # 10 dB ponad szum
 
-    # pierwszy fragment mowy
-    start_ms = chunks[0][0]
+    # teraz właściwe skanowanie czasu
+    command2 = [
+        "ffmpeg",
+        "-i", audio_path,
+        "-af", f"astats=metadata=1,ametadata=print:key=lavfi.astats.Overall.RMS_level",
+        "-f", "null",
+        "-"
+    ]
 
-    return start_ms / 1000.0
+    result2 = subprocess.run(command2, stderr=subprocess.PIPE, text=True)
+    logs2 = result2.stderr
+
+    for line in logs2.split("\n"):
+        if "pts_time" in line:
+            try:
+                t = float(re.search(r"pts_time:(\d+\.?\d*)", line).group(1))
+                rms = float(re.search(r"RMS_level=(-?\d+\.?\d*)", line).group(1))
+
+                if rms > threshold:
+                    return t
+            except:
+                continue
+
+    return 0.0
 
 
 
@@ -284,6 +309,8 @@ if uploaded_file is not None:
         st.toast("Audio extracted!")
 
     st.audio(audio_path)
+    #debug
+    st.write("FILE READY")
     #debug
     st.write("DEBUG AUDIO READY:", st.session_state.get("audio_ready"))#
     st.write("DEBUG OFFSET:", st.session_state.get("speech_offset"))
