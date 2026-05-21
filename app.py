@@ -3,12 +3,10 @@ import tempfile
 from io import BytesIO
 import subprocess
 from openai import OpenAI
-import numpy as np
 import shutil
 import os
 import re
-from pydub import AudioSegment
-from pydub.silence import detect_nonsilent
+import subprocess
 
 
 
@@ -41,251 +39,85 @@ def get_openai_client():
 
 AUDIO_TRANSCRIBE_MODEL = "whisper-1"
 
-#def
-def shift_audio(audio_path, offset):
-    shifted = "shifted_audio.mp3"
-
-    command = [
-        "ffmpeg",
-        "-y",
-        "-i", audio_path,
-        "-af", f"adelay={int(offset*1000)}|{int(offset*1000)}",
-        shifted
-    ]
-
-    subprocess.run(command, check=True)
-    return shifted
-
-#def konwersja czasu
-def srt_to_seconds(time_str):
-    h, m, s = time_str.replace(",", ".").split(":")
+# def 
+def srt_time_to_seconds(t):
+    t = t.replace(",", ".")
+    h, m, s = t.split(":")
     return int(h) * 3600 + int(m) * 60 + float(s)
-
-def seconds_to_srt(seconds):
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = seconds % 60
-    # Dbamy o to, aby ułamki sekund były oddzielone przecinkiem, a nie kropką
-    return f"{h:02}:{m:02}:{s:06.3f}".replace(".", ",")
-
-# wykrywanie początku mowy
-def detect_speech_start(audio_path):
-    command = [
-        "ffmpeg",
-        "-i", audio_path,
-        "-af", "silencedetect=noise=-30dB:d=0.5",
-        "-f", "null",
-        "-"
-    ]
-
-    result = subprocess.run(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-    logs = result.stderr
-
-    # Szukamy momentu, w którym kończy się cisza (czyli zaczyna się mowa)
-    silence_ends = re.findall(r"silence_end: ([0-9.]+)", logs)
-
-    if silence_ends:
-        return float(silence_ends[0])  # Zwróci np. 7.12
-
-    return 0.0
-
-
-
-# rozmiar wideo
-def get_video_ratio(video_path):
-
-    command = [
-        "ffprobe",
-        "-v", "error",
-        "-select_streams", "v:0",
-        "-show_entries", "stream=width,height",
-        "-of", "csv=s=x:p=0",
-        video_path
-    ]
-
-    result = subprocess.check_output(command).decode().strip()
-
-    width, height = map(int, result.split("x"))
-
-    return width, height
 
 
 # def 2 line
 def force_two_lines(text, max_chars=42):
-
     words = text.split()
 
-    lines = []
-    current_line = ""
+    line1 = ""
+    line2 = ""
 
     for w in words:
-
-        test_line = current_line + " " + w
-
-        if len(test_line.strip()) <= max_chars:
-            current_line = test_line
-
+        if len(line1 + " " + w) <= max_chars:
+            line1 += " " + w
+        elif len(line2 + " " + w) <= max_chars:
+            line2 += " " + w
         else:
-            lines.append(current_line.strip())
-            current_line = w
+            break
 
-    if current_line:
-        lines.append(current_line.strip())
+    line1 = line1.strip()
+    line2 = line2.strip()
 
-    return "\n".join(lines)
+    if line2:
+        return line1 + "\n" + line2
+
+    return line1
 
 # --- 3. FUNKCJE PRZETWARZANIA WIDEO I AUDIO ---
-# def transcribe_audio(audio_path):
-#     openai_client = get_openai_client()
-#     with open(audio_path, "rb") as audio_file:
-#         transcript = openai_client.audio.transcriptions.create(
-#             file=audio_file,
-#             model=AUDIO_TRANSCRIBE_MODEL,
-#             response_format="srt",
-#         )
-#     return transcript
 def transcribe_audio(audio_path):
     openai_client = get_openai_client()
     with open(audio_path, "rb") as audio_file:
-        # Prosimy o pełny JSON z dokładnymi znacznikami słów
-        response = openai_client.audio.transcriptions.create(
+        transcript = openai_client.audio.transcriptions.create(
             file=audio_file,
             model=AUDIO_TRANSCRIBE_MODEL,
-            response_format="verbose_json",
-            timestamp_granularities=["word"]
+            response_format="srt",
         )
-    
-    # Konwertujemy bezpiecznie na słownik
-    res_dict = response.model_dump()
-    segments = res_dict.get("segments", [])
-    
-    st.subheader("=== LOGI DEBAGA WHISPER ===")
-    if segments:
-        first_segment = segments[0]
-        st.write("1. Całkowity start pierwszego bloku (segmentu):", first_segment.get("start"))
-        st.write("2. Tekst pierwszego bloku:", first_segment.get("text"))
-        
-        words = first_segment.get("words", [])
-        st.write("3. Liczba słów w 1. bloku:", len(words))
-        
-        if words:
-            st.write("4. Pierwsze słowo:", words[0].get("word"))
-            st.write("5. DOKŁADNY START PIERWSZEGO SŁOWA:", words[0].get("start"))
-            st.write("6. Cała lista słów z czasami z 1. bloku:")
-            st.json(words)
-        else:
-            st.write("X. Whisper nie przysłał szczegółowych czasów dla słów (lista jest pusta).")
-    else:
-        st.write("X. Brak segmentów w odpowiedzi.")
-    st.subheader("==========================")
-    
-    # Zwracamy na koniec zwykły tekst (symulacja), żeby reszta aplikacji się nie wywaliła
-    return "DEBUG AKTYWNY - Sprawdź logi powyżej!"
+    return transcript
 
 
-
-
-# def dodawania napisów
 def add_subtitles_to_video(video_path, srt_content, output_path):
+
     srt_path = "subs.srt"
-
-    width, height = get_video_ratio(video_path)
-    ratio = width / height
-
-    if ratio < 0.8:
-        subtitle_style = (
-            "Fontsize=13,Bold=1,BorderStyle=1,Shadow=1.5,"
-            "BackColour=&H80000000,Alignment=2,MarginV=40,WrapStyle=0"
-        )
-        max_chars = 28
-    else:
-        subtitle_style = (
-            "Fontsize=20,Bold=1,BorderStyle=1,Shadow=1.5,"
-            "BackColour=&H80000000,Alignment=2,MarginV=40,WrapStyle=0"
-        )
-        max_chars = 60
 
     blocks = srt_content.strip().split("\n\n")
     new_blocks = []
 
-    # --- INTELIGENTNA AUTOKOREKTA SPECJALNIE DLA WSTĘPÓW Z MUZYKĄ ---
-    # Jeśli mamy więcej niż jeden blok napisów, sprawdzamy czas startu drugiego bloku
-    first_block_offset = 0.0
-    if len(blocks) > 1:
-        try:
-            # Sprawdzamy pierwszy blok
-            first_lines = [l.strip() for l in blocks[0].split("\n") if l.strip()]
-            first_start = first_lines[1].split(" --> ")[0]
-            
-            # Sprawdzamy drugi blok
-            second_lines = [l.strip() for l in blocks[1].split("\n") if l.strip()]
-            second_start = second_lines[1].split(" --> ")[0]
-            
-            # Konwertujemy na sekundy
-            f_sec = srt_to_seconds(first_start)
-            s_sec = srt_to_seconds(second_start)
-            
-            # Jeśli Whisper połączył ciszę wstępną z pierwszym zdaniem (start = 0, a drugie zdanie daleko),
-            # to cofamy start pierwszego zdania o stałą długość (np. 4 sekundy) od drugiego zdania,
-            # co idealnie wpasuje je w Twoje oczekiwane ~7 sekund!
-            if f_sec < 1.0 and s_sec > 10.0:
-                first_block_offset = s_sec - 5.0  # Ustawi start pierwszego napisu na ok. 7 sekundę
-        except:
-            pass
-    # ---------------------------------------------------------------
+    for block in blocks:
+        lines = block.split("\n")
 
-    for i, block in enumerate(blocks, start=1):
-        lines = [l.strip() for l in block.split("\n") if l.strip()]
-        if len(lines) < 2:
+        if len(lines) < 3:
             continue
 
-        time_line_idx = -1
-        for idx, line in enumerate(lines):
-            if " --> " in line:
-                time_line_idx = idx
-                break
+        header = "\n".join(lines[:2])
+        text = " ".join(lines[2:]).strip()
 
-        if time_line_idx == -1:
-            continue
+        text = force_two_lines(text, max_chars=999)
 
-        time_line = lines[time_line_idx]
-        start, end = time_line.split(" --> ")
-
-        # Zamiana na sekundy
-        start_sec = srt_to_seconds(start)
-        end_sec = srt_to_seconds(end)
-
-        # Jeśli to pierwszy blok i wykryliśmy potrzebę przesunięcia muzycznego wstępu
-        if i == 1 and first_block_offset > 0.0:
-            start_sec = first_block_offset
-            # Pilnujemy, żeby koniec napisu nie był po drugim napisie
-            if end_sec <= start_sec:
-                end_sec = start_sec + 4.0
-
-        new_time = f"{seconds_to_srt(start_sec)} --> {seconds_to_srt(end_sec)}"
-
-        text_lines = lines[time_line_idx + 1:]
-        text = " ".join(text_lines).strip()
-        text = force_two_lines(text, max_chars=max_chars)
-
-        new_block = f"{i}\n{new_time}\n{text}"
-        new_blocks.append(new_block)
+        new_blocks.append(header + "\n" + text)
 
     final_srt = "\n\n".join(new_blocks)
 
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(final_srt)
 
-    safe_srt_path = srt_path.replace("\\", "/")
-    vf_filter = f"subtitles={safe_srt_path}:charenc=UTF-8:force_style='{subtitle_style}'"
-    command_str = f'ffmpeg -y -i "{video_path}" -vf "{vf_filter}" -c:a copy "{output_path}"'
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i", video_path,
+        "-vf",
+        "subtitles=subs.srt:charenc=UTF-8:force_style='Fontsize=13,Bold=1,BorderStyle=1,Shadow=1.5,BackColour=&H80000000,Alignment=2,MarginV=40,WrapStyle=0'",
+        "-c:a",
+        "copy",
+        output_path
+]
 
-    result = subprocess.run(command_str, capture_output=True, text=True, shell=True)
-    
-    if result.returncode != 0:
-        raise Exception(f"FFMPEG Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
-
-
+    subprocess.run(command, check=True)
 
 
 
@@ -355,11 +187,9 @@ if uploaded_file is not None:
         st.toast("Audio extracted!")
 
     st.audio(audio_path)
-    st.write("FILE READY")
 
     if st.button("Generuj napisy"):
         with st.spinner("Transcribing audio..."):
-            # Whisper sam z siebie analizuje audio i przypisuje poprawne czasy
             st.session_state["note_audio_text"] = transcribe_audio(audio_path)
         st.success("Napisy wygenerowane!")
 
