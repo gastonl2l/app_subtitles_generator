@@ -147,7 +147,6 @@ def transcribe_audio(audio_path):
 
 
 def add_subtitles_to_video(video_path, srt_content, output_path):
-
     srt_path = "subs.srt"
 
     width, height = get_video_ratio(video_path)
@@ -169,25 +168,30 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     new_blocks = []
 
-    base_offset = st.session_state.get("speech_offset", 0.0)
-
     for i, block in enumerate(blocks, start=1):
-        lines = block.split("\n")
-        if len(lines) < 3:
+        lines = [l.strip() for l in block.split("\n") if l.strip()]
+        if len(lines) < 2:
             continue
 
-        time_line = lines[1]
-        start, end = time_line.split(" --> ")
+        # Szukamy linii, która faktycznie zawiera separator czasu " --> "
+        time_line_idx = -1
+        for idx, line in enumerate(lines):
+            if " --> " in line:
+                time_line_idx = idx
+                break
 
-        start_sec = max(0, srt_to_seconds(start) + base_offset)
-        end_sec = max(0, srt_to_seconds(end) + base_offset)
+        if time_line_idx == -1:
+            continue
 
-        new_time = f"{seconds_to_srt(start_sec)} --> {seconds_to_srt(end_sec)}"
+        # Pobieramy czas z Whisper dokładnie taki, jaki jest (1:1)
+        time_line = lines[time_line_idx]
 
-        text = " ".join(lines[2:]).strip()
+        # Wszystkie linie poniżej znacznika czasu to tekst napisów
+        text_lines = lines[time_line_idx + 1:]
+        text = " ".join(text_lines).strip()
         text = force_two_lines(text, max_chars=max_chars)
 
-        new_block = f"{i}\n{new_time}\n{text}"
+        new_block = f"{i}\n{time_line}\n{text}"
         new_blocks.append(new_block)
 
     final_srt = "\n\n".join(new_blocks)
@@ -195,18 +199,16 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(final_srt)
 
-    command = [
-        "ffmpeg",
-        "-y",
-        "-i", video_path,
-        "-vf",
-        f"subtitles=subs.srt:charenc=UTF-8:force_style='{subtitle_style}'",
-        "-c:a",
-        "copy",
-        output_path
-    ]
+    # Bezpieczne formatowanie ścieżki i komendy na Linux (Streamlit Cloud) z shell=True
+    safe_srt_path = srt_path.replace("\\", "/")
+    vf_filter = f"subtitles={safe_srt_path}:charenc=UTF-8:force_style='{subtitle_style}'"
+    command_str = f'ffmpeg -y -i "{video_path}" -vf "{vf_filter}" -c:a copy "{output_path}"'
 
-    subprocess.run(command, check=True)
+    result = subprocess.run(command_str, capture_output=True, text=True, shell=True)
+    
+    if result.returncode != 0:
+        raise Exception(f"FFMPEG Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
+
 
 
 
@@ -273,25 +275,14 @@ if uploaded_file is not None:
             progress_bar.progress(percent + 1)
         process.wait()
         st.session_state["audio_ready"] = True
-        offset = detect_speech_start(audio_path)
-
-        if offset is None:
-            offset = 0.0
-
-        st.session_state["speech_offset"] = offset
-        
         st.toast("Audio extracted!")
 
     st.audio(audio_path)
-    #debug
     st.write("FILE READY")
-    #debug
-    st.write("DEBUG AUDIO READY:", st.session_state.get("audio_ready"))#
-    st.write("DEBUG OFFSET:", st.session_state.get("speech_offset"))
 
     if st.button("Generuj napisy"):
         with st.spinner("Transcribing audio..."):
-            offset = st.session_state.get("speech_offset", 0.0)
+            # Whisper sam z siebie analizuje audio i przypisuje poprawne czasy
             st.session_state["note_audio_text"] = transcribe_audio(audio_path)
         st.success("Napisy wygenerowane!")
 
