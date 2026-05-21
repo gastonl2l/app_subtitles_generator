@@ -138,7 +138,6 @@ def force_two_lines(text, max_chars=42):
 def transcribe_audio(audio_path):
     openai_client = get_openai_client()
     with open(audio_path, "rb") as audio_file:
-        # Zmieniamy format na verbose_json i włączamy timestamps dla słów
         response = openai_client.audio.transcriptions.create(
             file=audio_file,
             model=AUDIO_TRANSCRIBE_MODEL,
@@ -146,32 +145,30 @@ def transcribe_audio(audio_path):
             timestamp_granularities=["word"]
         )
     
-    # Bezpieczna konwersja obiektu OpenAI do zwykłego słownika Pythona
     response_dict = response.model_dump()
     segments = response_dict.get("segments", [])
     
     srt_output = []
     for i, segment in enumerate(segments, start=1):
-        # Pobieramy listę słów dla danego segmentu
         words = segment.get("words", [])
         
-        # Kluczowa zmiana: jeśli są słowa, bierzemy start pierwszego słowa.
-        # To uratuje nas przed fałszywym czasem 00:00:00!
-        if words:
-            start_sec = words[0].get("start", segment.get("start", 0.0))
+        # POPRAWKA: Sprawdzamy czy lista 'words' nie jest pusta i wyciągamy start z pierwszego słowa (indeks 0)
+        if words and isinstance(words, list):
+            first_word_dict = words[0]
+            start_sec = first_word_dict.get("start", segment.get("start", 0.0))
         else:
             start_sec = segment.get("start", 0.0)
             
         end_sec = segment.get("end", 0.0)
         text = segment.get("text", "").strip()
         
-        # Konwertujemy sekundy na format SRT (00:00:00,000)
         start_srt = seconds_to_srt(start_sec)
         end_srt = seconds_to_srt(end_sec)
         
         srt_output.append(f"{i}\n{start_srt} --> {end_srt}\n{text}")
             
     return "\n\n".join(srt_output)
+
 
 
 # def dodawania napisów
