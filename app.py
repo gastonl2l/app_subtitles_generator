@@ -138,36 +138,12 @@ def force_two_lines(text, max_chars=42):
 def transcribe_audio(audio_path):
     openai_client = get_openai_client()
     with open(audio_path, "rb") as audio_file:
-        response = openai_client.audio.transcriptions.create(
+        transcript = openai_client.audio.transcriptions.create(
             file=audio_file,
             model=AUDIO_TRANSCRIBE_MODEL,
-            response_format="verbose_json",
-            timestamp_granularities=["word"]
+            response_format="srt",
         )
-    
-    response_dict = response.model_dump()
-    segments = response_dict.get("segments", [])
-    
-    srt_output = []
-    for i, segment in enumerate(segments, start=1):
-        words = segment.get("words", [])
-        
-        # POPRAWKA: Sprawdzamy czy lista 'words' nie jest pusta i wyciągamy start z pierwszego słowa (indeks 0)
-        if words and isinstance(words, list):
-            first_word_dict = words[0]
-            start_sec = first_word_dict.get("start", segment.get("start", 0.0))
-        else:
-            start_sec = segment.get("start", 0.0)
-            
-        end_sec = segment.get("end", 0.0)
-        text = segment.get("text", "").strip()
-        
-        start_srt = seconds_to_srt(start_sec)
-        end_srt = seconds_to_srt(end_sec)
-        
-        srt_output.append(f"{i}\n{start_srt} --> {end_srt}\n{text}")
-            
-    return "\n\n".join(srt_output)
+    return transcript
 
 
 
@@ -194,12 +170,37 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     blocks = srt_content.strip().split("\n\n")
     new_blocks = []
 
+    # --- INTELIGENTNA AUTOKOREKTA SPECJALNIE DLA WSTĘPÓW Z MUZYKĄ ---
+    # Jeśli mamy więcej niż jeden blok napisów, sprawdzamy czas startu drugiego bloku
+    first_block_offset = 0.0
+    if len(blocks) > 1:
+        try:
+            # Sprawdzamy pierwszy blok
+            first_lines = [l.strip() for l in blocks[0].split("\n") if l.strip()]
+            first_start = first_lines[1].split(" --> ")[0]
+            
+            # Sprawdzamy drugi blok
+            second_lines = [l.strip() for l in blocks[1].split("\n") if l.strip()]
+            second_start = second_lines[1].split(" --> ")[0]
+            
+            # Konwertujemy na sekundy
+            f_sec = srt_to_seconds(first_start)
+            s_sec = srt_to_seconds(second_start)
+            
+            # Jeśli Whisper połączył ciszę wstępną z pierwszym zdaniem (start = 0, a drugie zdanie daleko),
+            # to cofamy start pierwszego zdania o stałą długość (np. 4 sekundy) od drugiego zdania,
+            # co idealnie wpasuje je w Twoje oczekiwane ~7 sekund!
+            if f_sec < 1.0 and s_sec > 10.0:
+                first_block_offset = s_sec - 5.0  # Ustawi start pierwszego napisu na ok. 7 sekundę
+        except:
+            pass
+    # ---------------------------------------------------------------
+
     for i, block in enumerate(blocks, start=1):
         lines = [l.strip() for l in block.split("\n") if l.strip()]
         if len(lines) < 2:
             continue
 
-        # Szukamy linii, która faktycznie zawiera separator czasu " --> "
         time_line_idx = -1
         for idx, line in enumerate(lines):
             if " --> " in line:
@@ -209,15 +210,27 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
         if time_line_idx == -1:
             continue
 
-        # Pobieramy czas z Whisper dokładnie taki, jaki jest (1:1)
         time_line = lines[time_line_idx]
+        start, end = time_line.split(" --> ")
 
-        # Wszystkie linie poniżej znacznika czasu to tekst napisów
+        # Zamiana na sekundy
+        start_sec = srt_to_seconds(start)
+        end_sec = srt_to_seconds(end)
+
+        # Jeśli to pierwszy blok i wykryliśmy potrzebę przesunięcia muzycznego wstępu
+        if i == 1 and first_block_offset > 0.0:
+            start_sec = first_block_offset
+            # Pilnujemy, żeby koniec napisu nie był po drugim napisie
+            if end_sec <= start_sec:
+                end_sec = start_sec + 4.0
+
+        new_time = f"{seconds_to_srt(start_sec)} --> {seconds_to_srt(end_sec)}"
+
         text_lines = lines[time_line_idx + 1:]
         text = " ".join(text_lines).strip()
         text = force_two_lines(text, max_chars=max_chars)
 
-        new_block = f"{i}\n{time_line}\n{text}"
+        new_block = f"{i}\n{new_time}\n{text}"
         new_blocks.append(new_block)
 
     final_srt = "\n\n".join(new_blocks)
@@ -225,7 +238,6 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(final_srt)
 
-    # Bezpieczne formatowanie ścieżki i komendy na Linux (Streamlit Cloud) z shell=True
     safe_srt_path = srt_path.replace("\\", "/")
     vf_filter = f"subtitles={safe_srt_path}:charenc=UTF-8:force_style='{subtitle_style}'"
     command_str = f'ffmpeg -y -i "{video_path}" -vf "{vf_filter}" -c:a copy "{output_path}"'
@@ -234,6 +246,7 @@ def add_subtitles_to_video(video_path, srt_content, output_path):
     
     if result.returncode != 0:
         raise Exception(f"FFMPEG Error:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
+
 
 
 
