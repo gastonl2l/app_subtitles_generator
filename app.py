@@ -65,7 +65,7 @@ def seconds_to_srt(seconds):
     h = int(seconds // 3600)
     m = int((seconds % 3600) // 60)
     s = seconds % 60
-
+    # Dbamy o to, aby ułamki sekund były oddzielone przecinkiem, a nie kropką
     return f"{h:02}:{m:02}:{s:06.3f}".replace(".", ",")
 
 # wykrywanie początku mowy
@@ -138,12 +138,30 @@ def force_two_lines(text, max_chars=42):
 def transcribe_audio(audio_path):
     openai_client = get_openai_client()
     with open(audio_path, "rb") as audio_file:
-        transcript = openai_client.audio.transcriptions.create(
+        # Zmieniamy format na verbose_json i włączamy timestamps dla słów
+        response = openai_client.audio.transcriptions.create(
             file=audio_file,
             model=AUDIO_TRANSCRIBE_MODEL,
-            response_format="srt",
+            response_format="verbose_json",
+            timestamp_granularities=["word"]
         )
-    return transcript
+    
+    # Przekształcamy zaawansowany JSON z precyzyjnymi czasami na poprawny format SRT
+    srt_output = []
+    if hasattr(response, 'segments'):
+        for i, segment in enumerate(response.segments, start=1):
+            # Kluczowa zmiana: pobieramy realny start pierwszego słowa w tym segmencie!
+            start_sec = segment.get('words', [{}])[0].get('start', segment.get('start', 0.0))
+            end_sec = segment.get('end', 0.0)
+            text = segment.get('text', '').strip()
+            
+            # Konwertujemy sekundy na format SRT (00:00:00,000)
+            start_srt = seconds_to_srt(start_sec)
+            end_srt = seconds_to_srt(end_sec)
+            
+            srt_output.append(f"{i}\n{start_srt} --> {end_srt}\n{text}")
+            
+    return "\n\n".join(srt_output)
 
 
 def add_subtitles_to_video(video_path, srt_content, output_path):
