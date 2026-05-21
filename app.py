@@ -135,15 +135,53 @@ def force_two_lines(text, max_chars=42):
     return "\n".join(lines)
 
 # --- 3. FUNKCJE PRZETWARZANIA WIDEO I AUDIO ---
+# def transcribe_audio(audio_path):
+#     openai_client = get_openai_client()
+#     with open(audio_path, "rb") as audio_file:
+#         transcript = openai_client.audio.transcriptions.create(
+#             file=audio_file,
+#             model=AUDIO_TRANSCRIBE_MODEL,
+#             response_format="srt",
+#         )
+#     return transcript
 def transcribe_audio(audio_path):
     openai_client = get_openai_client()
     with open(audio_path, "rb") as audio_file:
-        transcript = openai_client.audio.transcriptions.create(
+        # Prosimy o pełny JSON z dokładnymi znacznikami słów
+        response = openai_client.audio.transcriptions.create(
             file=audio_file,
             model=AUDIO_TRANSCRIBE_MODEL,
-            response_format="srt",
+            response_format="verbose_json",
+            timestamp_granularities=["word"]
         )
-    return transcript
+    
+    # Konwertujemy bezpiecznie na słownik
+    res_dict = response.model_dump()
+    segments = res_dict.get("segments", [])
+    
+    st.subheader("=== LOGI DEBAGA WHISPER ===")
+    if segments:
+        first_segment = segments[0]
+        st.write("1. Całkowity start pierwszego bloku (segmentu):", first_segment.get("start"))
+        st.write("2. Tekst pierwszego bloku:", first_segment.get("text"))
+        
+        words = first_segment.get("words", [])
+        st.write("3. Liczba słów w 1. bloku:", len(words))
+        
+        if words:
+            st.write("4. Pierwsze słowo:", words[0].get("word"))
+            st.write("5. DOKŁADNY START PIERWSZEGO SŁOWA:", words[0].get("start"))
+            st.write("6. Cała lista słów z czasami z 1. bloku:")
+            st.json(words)
+        else:
+            st.write("X. Whisper nie przysłał szczegółowych czasów dla słów (lista jest pusta).")
+    else:
+        st.write("X. Brak segmentów w odpowiedzi.")
+    st.subheader("==========================")
+    
+    # Zwracamy na koniec zwykły tekst (symulacja), żeby reszta aplikacji się nie wywaliła
+    return "DEBUG AKTYWNY - Sprawdź logi powyżej!"
+
 
 
 
